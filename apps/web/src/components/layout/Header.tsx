@@ -17,6 +17,7 @@ const NAV_LINKS = [
       { href: "/shop?category=fruit", label: "凍乾水果" },
     ],
   },
+  { href: "/faq", label: "常見問題" },
   { href: "/blog", label: "聰明生活" },
   { href: "/idea", label: "公益里程" },
   { href: "/membership", label: "會員制度" },

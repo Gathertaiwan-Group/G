@@ -619,93 +619,6 @@ function RetailSection() {
   )
 }
 
-const HOME_FAQS = [
-  { q: "植物蛋白會造成腎臟負擔嗎？", a: "植物蛋白在人體內產生的酸負荷較低，少了過多雜質與身體不需的負擔，是長期補充蛋白質較安全的選擇。" },
-  { q: "一般人每天需要多少蛋白質？", a: "多數人每日約需要「體重 × 1.2–1.6 公克」的蛋白質。誠真植物蛋白粉一包約含 21–24 公克，大約是 3 顆雞蛋的分量。" },
-  { q: "產品真的是純素的嗎？", a: "是的。我們所有產品皆為 100% 植物性配方，無動物性製品，亦不經動物實驗。" },
-  { q: "運費如何計算？", a: "宅配運費 NT$150，超商取貨運費 NT$65。消費滿 NT$499 超商取貨免運，消費滿 NT$999 宅配免運。" },
-  { q: "收到商品後可以退貨嗎？", a: "依消費者保護法享有 7 天鑑賞期（非試用期）。食品一經拆封，恕不退換。" },
-]
-
-function FaqSection() {
-  return (
-    <section className="py-16 sm:py-20 bg-[#fffeee]">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <h2 className="text-center text-2xl font-bold tracking-tight text-[#10305a] sm:text-3xl mb-10">
-          常見問題
-        </h2>
-        <div className="space-y-2">
-          {HOME_FAQS.map((item) => (
-            <details key={item.q} className="group border border-[#10305a]/10 rounded-xl bg-white">
-              <summary className="flex cursor-pointer items-center justify-between px-5 py-4 font-medium text-sm text-[#10305a] hover:bg-[#10305a]/5 transition-colors rounded-xl">
-                <span>{item.q}</span>
-                <span className="ml-4 shrink-0 text-[#10305a]/40 transition-transform group-open:rotate-45 text-lg leading-none">+</span>
-              </summary>
-              <div className="px-5 pb-4 text-sm text-[#687279] leading-relaxed">
-                {item.a}
-              </div>
-            </details>
-          ))}
-        </div>
-        <div className="mt-8 text-center">
-          <Link
-            href="/faq"
-            className="inline-flex items-center gap-1 text-sm font-medium text-[#10305a] underline underline-offset-4 hover:opacity-70 transition-opacity"
-          >
-            查看完整常見問題 →
-          </Link>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function FooterCTA() {
-  return (
-    <section className="bg-[#10305a] py-16 sm:py-20 text-white">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-12">
-
-          {/* Left — social */}
-          <div className="text-center lg:text-left">
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              純淨補給，安心生活
-            </h2>
-            <p className="mt-2 text-base text-white/70">
-              Pure input, honest wellness
-            </p>
-            <p className="mt-6 text-sm leading-relaxed text-white/80">
-              追蹤我們的 LINE / IG / FB，獲取第一手品牌消息與專屬優惠。
-            </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-3">
-              <a href="https://lin.ee/qo1oqct" target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-sm font-medium hover:bg-white/20 transition-colors">
-                Line@
-              </a>
-              <a href="https://www.instagram.com/realreal.yinsin/" target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-sm font-medium hover:bg-white/20 transition-colors">
-                Instagram
-              </a>
-              <a href="https://www.facebook.com/realreal.cc" target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-sm font-medium hover:bg-white/20 transition-colors">
-                Facebook
-              </a>
-            </div>
-          </div>
-
-          {/* Right — company info */}
-          <div className="text-center lg:text-right text-sm text-white/60 space-y-1.5 lg:shrink-0">
-            <p className="text-white/90 font-semibold text-base">誠真生活有限公司</p>
-            <p>統編 60515111</p>
-            <p>電話 02-66093066</p>
-            <p>食品業者登錄字號 A-202321704-00000-8</p>
-          </div>
-
-        </div>
-      </div>
-    </section>
-  )
-}
 
 /* ---------- page ---------- */
 
@@ -758,17 +671,11 @@ export default async function HomePage() {
       {/* 5. Customer reviews (before blog, matching WordPress order) */}
       <ReviewsSection testimonials={testimonials} />
 
-      {/* 6. FAQ */}
-      <FaqSection />
-
-      {/* 7. Blog section */}
+      {/* 6. Blog section */}
       <BlogSection posts={blogResult.data} />
 
-      {/* 8. Retail stores */}
+      {/* 7. Retail stores */}
       <RetailSection />
-
-      {/* 8. Footer CTA with social links */}
-      <FooterCTA />
     </main>
   )
 }
