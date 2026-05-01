@@ -155,9 +155,6 @@ export function Footer() {
             </Link>
           </div>
         </div>
-        <div className="container mx-auto px-6 pb-4 text-center text-xs opacity-40">
-          食品業者登錄字號 A-202321704-00000-8
-        </div>
       </div>
     </footer>
   )
