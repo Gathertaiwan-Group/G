@@ -97,7 +97,7 @@ export function Footer() {
                 </svg>
               </a>
               <a
-                href="https://www.facebook.com"
+                href="https://www.facebook.com/realreal.cc"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Facebook"
@@ -108,7 +108,7 @@ export function Footer() {
                 </svg>
               </a>
               <a
-                href="https://line.me"
+                href="https://lin.ee/pEoN1zt"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="LINE"
