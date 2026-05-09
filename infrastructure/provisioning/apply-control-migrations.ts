@@ -1,5 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs"
-import { join } from "node:path"
+import { fileURLToPath } from "node:url"
+import { dirname, join } from "node:path"
+
+// ESM-safe __dirname (also works under tsx CJS)
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const TOKEN = process.env.SUPABASE_PAT
 const REF = process.env.CONTROL_DB_REF
@@ -15,14 +19,23 @@ const HEADERS = {
   "User-Agent": "control-migrations/1.0",
 }
 
+// NOTE (one-time bootstrap): the control DB is fresh, so the v1 migrations
+// rely on `create table if not exists` + idempotent constraint changes. If
+// constraint definitions diverge from a previous run, drop the affected
+// tables in the control DB and re-run this script — safe while no real
+// data exists. Subsequent schema changes must be additive migrations.
 async function runSql(query: string, label: string) {
   const res = await fetch(
     `https://api.supabase.com/v1/projects/${REF}/database/query`,
-    { method: "POST", headers: HEADERS, body: JSON.stringify({ query }) },
+    {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(30_000),
+    },
   )
   if (!res.ok) {
-    console.error(`✗ ${label}: ${await res.text()}`)
-    process.exit(1)
+    throw new Error(`${label}: ${await res.text()}`)
   }
   console.log(`✓ ${label}`)
 }
