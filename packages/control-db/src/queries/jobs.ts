@@ -19,10 +19,11 @@ export async function markJobStatus(
   c: SupabaseClient,
   id: string,
   status: JobStatus,
-  patch: { last_error?: string; result?: unknown } = {},
+  patch: { last_error?: string | null; result?: unknown } = {},
 ) {
   const update: Record<string, unknown> = { status }
   if (status === "success" || status === "failed") update.finished_at = new Date().toISOString()
+  if (status === "success") update.last_error = null
   if (patch.last_error !== undefined) update.last_error = patch.last_error
   if (patch.result !== undefined) update.result = patch.result
   const { error } = await c.from("provisioning_jobs").update(update).eq("id", id)
