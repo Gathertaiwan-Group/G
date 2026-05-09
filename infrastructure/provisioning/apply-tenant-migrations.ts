@@ -36,16 +36,33 @@ async function runSql<T = unknown>(query: string, label: string): Promise<T> {
 }
 
 async function fetchApplied(): Promise<Set<string>> {
-  // schema_migrations may not exist yet on the very first run; treat that
-  // as "nothing applied yet" so 0015 can create the table.
+  // schema_migrations may not exist yet on the very first run; treat ONLY
+  // that specific case as "nothing applied yet" so the bootstrap path below
+  // can apply 0015 (which creates the tracking table and backfills the
+  // historical filenames). All other failures (auth, network, malformed
+  // response, etc.) MUST propagate — swallowing them would silently return
+  // an empty set and re-apply non-idempotent migrations on transient errors.
   try {
-    const rows = await runSql<{ filename: string }[]>(
+    const rows = await runSql<Array<{ filename: string }>>(
       "select filename from schema_migrations",
-      "list applied",
+      "list applied migrations",
     )
+    if (!Array.isArray(rows)) {
+      throw new Error(
+        "schema_migrations query returned non-array: " + JSON.stringify(rows),
+      )
+    }
     return new Set(rows.map((r) => r.filename))
-  } catch {
-    return new Set<string>()
+  } catch (err) {
+    const msg = String((err as Error).message ?? err)
+    // Only swallow the specific "table does not exist" case (Postgres 42P01).
+    if (
+      msg.includes("schema_migrations") &&
+      (msg.includes("does not exist") || msg.includes("42P01"))
+    ) {
+      return new Set<string>()
+    }
+    throw err
   }
 }
 
@@ -58,6 +75,10 @@ async function main() {
   // that already had 0001-0014 applied historically), run 0015 FIRST so it
   // creates the tracking table and backfills the historical filenames. This
   // prevents the loop from trying to re-run non-idempotent 0001-0014.
+  //
+  // Note: 0015's SQL ends with an INSERT that self-registers '0015_schema_migrations.sql'
+  // into schema_migrations, so the loop below will see it in `applied` and
+  // correctly skip it on the next iteration — no double-apply.
   const initialApplied = await fetchApplied()
   if (initialApplied.size === 0) {
     const bootstrapPath = join(MIGRATIONS_DIR, BOOTSTRAP_FILE)
