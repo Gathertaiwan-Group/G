@@ -1,11 +1,8 @@
 import { createHmac, timingSafeEqual } from "crypto"
+import { getPaymentConfig } from "./provider-config"
 
 // JKOPay Online Payment API — https://developer.jkopay.com/
 // NOTE: JKOPay does NOT support recurring / token payments. For subscriptions, use PChomePay only.
-
-const STORE_ID = process.env.JKOPAY_STORE_ID ?? ""
-const API_KEY = process.env.JKOPAY_API_KEY ?? ""
-const SECRET_KEY = process.env.JKOPAY_SECRET_KEY ?? ""
 
 const BASE_URL = process.env.JKOPAY_SANDBOX === "true"
   ? "https://uat-api.jkopay.com"
@@ -26,9 +23,10 @@ export async function initiatePayment(
 ): Promise<{ paymentUrl: string; merchantTradeNo: string }> {
   const merchantTradeNo = `RRJ${Date.now()}`
   const siteUrl = process.env.SITE_URL ?? "https://realreal.cc"
+  const cfg = await getPaymentConfig()
 
   const bodyObj = {
-    store_id: STORE_ID,
+    store_id: cfg.jkopay_store_id,
     merchant_trade_no: merchantTradeNo,
     currency: "TWD",
     total_price: amount,
@@ -37,14 +35,14 @@ export async function initiatePayment(
     notify_url: `${siteUrl}/api/webhooks/jkopay`,
   }
   const payload = JSON.stringify(bodyObj)
-  const signature = createHmac("sha256", SECRET_KEY).update(payload).digest("hex")
+  const signature = createHmac("sha256", cfg.jkopay_secret_key).update(payload).digest("hex")
 
   const response = await fetch(`${BASE_URL}/order/create`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Store-ID": STORE_ID,
-      "X-Api-Key": API_KEY,
+      "X-Store-ID": cfg.jkopay_store_id,
+      "X-Api-Key": cfg.jkopay_api_key,
       "X-Signature": signature,
     },
     body: payload,

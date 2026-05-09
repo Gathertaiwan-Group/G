@@ -1,9 +1,6 @@
 import { Router } from "express"
 import { buildCheckMacValue } from "../lib/ecpay-logistics"
-
-const MERCHANT_ID = process.env.ECPAY_MERCHANT_ID ?? ""
-const HASH_KEY = process.env.ECPAY_HASH_KEY ?? ""
-const HASH_IV = process.env.ECPAY_HASH_IV ?? ""
+import { getPaymentConfig } from "../lib/provider-config"
 
 const MAP_URL = process.env.ECPAY_SANDBOX === "true"
   ? "https://logistics-stage.ecpay.com.tw/Express/map"
@@ -15,21 +12,22 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://realreal.cc"
 export const logisticsRouter = Router()
 
 // GET /logistics/map — Generate ECPay store map selection form (auto-submits)
-logisticsRouter.get("/map", (req, res) => {
+logisticsRouter.get("/map", async (req, res) => {
   const logisticsSubType = (req.query.logisticsSubType as string) ?? "UNIMART"
   const isCollection = (req.query.isCollection as string) ?? "N"
 
   const merchantTradeNo = `MAP${Date.now()}`
+  const cfg = await getPaymentConfig()
 
   const fields: Record<string, string> = {
-    MerchantID: MERCHANT_ID,
+    MerchantID: cfg.ecpay_merchant_id,
     MerchantTradeNo: merchantTradeNo,
     LogisticsType: "CVS",
     LogisticsSubType: logisticsSubType,
     IsCollection: isCollection,
     ServerReplyURL: `${RAILWAY_API_URL}/logistics/map-result`,
   }
-  fields.CheckMacValue = buildCheckMacValue(fields, HASH_KEY, HASH_IV)
+  fields.CheckMacValue = buildCheckMacValue(fields, cfg.ecpay_hash_key, cfg.ecpay_hash_iv)
 
   // Build hidden form fields
   const hiddenInputs = Object.entries(fields)

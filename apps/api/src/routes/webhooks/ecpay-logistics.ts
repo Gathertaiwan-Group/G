@@ -1,9 +1,7 @@
 import { Router } from "express"
 import { supabase } from "../../lib/supabase"
 import { buildCheckMacValue } from "../../lib/ecpay-logistics"
-
-const HASH_KEY = process.env.ECPAY_HASH_KEY ?? ""
-const HASH_IV = process.env.ECPAY_HASH_IV ?? ""
+import { getPaymentConfig } from "../../lib/provider-config"
 
 export const ecpayLogisticsWebhookRouter = Router()
 
@@ -16,7 +14,8 @@ ecpayLogisticsWebhookRouter.post("/", async (req, res) => {
   if (CheckMacValue) {
     const paramsWithoutMac = { ...params }
     delete paramsWithoutMac.CheckMacValue
-    const expected = buildCheckMacValue(paramsWithoutMac, HASH_KEY, HASH_IV)
+    const cfg = await getPaymentConfig()
+    const expected = buildCheckMacValue(paramsWithoutMac, cfg.ecpay_hash_key, cfg.ecpay_hash_iv)
     if (CheckMacValue !== expected) {
       console.warn("[webhooks/ecpay-logistics] CheckMacValue mismatch")
       res.status(400).send("0|SignatureError"); return

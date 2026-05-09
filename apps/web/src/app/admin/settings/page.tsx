@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import SiteNoticeForm from "./_components/site-notice-form"
@@ -33,6 +34,20 @@ export default async function AdminSettingsPage() {
             active={siteNotice?.active ?? false}
             variant={siteNotice?.variant ?? "info"}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">金流 / 物流 / 發票金鑰</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-2">
+            管理 PChomePay、LINE Pay、JKOPay、ECPay、Amego 的 API 金鑰。
+          </p>
+          <Link href="/admin/settings/payments" className="text-sm underline">
+            前往設定 →
+          </Link>
         </CardContent>
       </Card>
     </div>

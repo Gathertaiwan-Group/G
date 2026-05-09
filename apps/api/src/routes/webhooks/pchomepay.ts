@@ -1,11 +1,9 @@
 import { Router } from "express"
 import { supabase } from "../../lib/supabase"
 import { verifyCheckMacValue } from "../../lib/pchomepay"
+import { getPaymentConfig } from "../../lib/provider-config"
 
 export const pchomepayWebhookRouter = Router()
-
-const HASH_KEY = process.env.PCHOMEPAY_HASH_KEY ?? ""
-const HASH_IV = process.env.PCHOMEPAY_HASH_IV ?? ""
 
 // POST /webhooks/pchomepay — PChomePay server notification
 // PChomePay sends form-encoded POST; must return "1|OK" on success
@@ -13,7 +11,8 @@ pchomepayWebhookRouter.post("/", async (req, res) => {
   const params = req.body as Record<string, string>
 
   // Verify CheckMacValue (timing-safe)
-  if (!verifyCheckMacValue(params, HASH_KEY, HASH_IV)) {
+  const cfg = await getPaymentConfig()
+  if (!verifyCheckMacValue(params, cfg.pchomepay_hash_key, cfg.pchomepay_hash_iv)) {
     res.status(400).send("0|SignatureError"); return
   }
 
