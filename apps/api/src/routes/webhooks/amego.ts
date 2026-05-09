@@ -1,6 +1,7 @@
 import { Router } from "express"
 import crypto from "crypto"
 import { supabase } from "../../lib/supabase"
+import { getPaymentConfig } from "../../lib/provider-config"
 
 export const amegoWebhookRouter = Router()
 
@@ -11,7 +12,8 @@ export const amegoWebhookRouter = Router()
 amegoWebhookRouter.post("/", async (req, res) => {
   // Verify HMAC-SHA256 signature
   const signature = req.headers["x-amego-signature"] as string | undefined
-  const secret = process.env.AMEGO_WEBHOOK_SECRET ?? ""
+  const cfg = await getPaymentConfig()
+  const secret = cfg.amego_webhook_secret
 
   if (!signature) {
     res.status(401).json({ error: "Missing X-Amego-Signature header" }); return

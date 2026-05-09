@@ -1,5 +1,6 @@
 import { createHmac } from "crypto"
 import { timingSafeEqual } from "crypto"
+import { getPaymentConfig } from "./provider-config"
 
 // ---------------------------------------------------------------------------
 // Webhook verification (CheckMacValue)
@@ -41,10 +42,11 @@ export async function createPayment(params: {
   returnUrl: string
   notifyUrl: string
 }): Promise<{ paymentUrl: string }> {
-  const appId = process.env.PCHOMEPAY_APP_ID
-  const secret = process.env.PCHOMEPAY_SECRET
+  const cfg = await getPaymentConfig()
+  const appId = cfg.pchomepay_app_id
+  const secret = cfg.pchomepay_secret
   if (!appId || !secret) {
-    throw new Error("Missing PCHOMEPAY_APP_ID or PCHOMEPAY_SECRET env vars")
+    throw new Error("Missing PChomePay App ID or Secret — set them in /admin/settings/payments")
   }
 
   const body = {

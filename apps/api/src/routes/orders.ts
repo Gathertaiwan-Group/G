@@ -6,6 +6,7 @@ import { getMemberDiscountRate } from "../lib/tier"
 import { buildCheckMacValue } from "../lib/pchomepay"
 import { requestPayment as linePayRequestPayment } from "../lib/linepay"
 import { initiatePayment as jkoPayInitiatePayment } from "../lib/jkopay"
+import { getPaymentConfig } from "../lib/provider-config"
 
 export const ordersRouter = Router()
 
@@ -158,8 +159,9 @@ ordersRouter.post("/", async (req, res) => {
 
   try {
     if (paymentMethod === "pchomepay") {
-      const appId = process.env.PCHOMEPAY_APP_ID ?? ""
-      const secret = process.env.PCHOMEPAY_SECRET ?? ""
+      const cfg = await getPaymentConfig()
+      const appId = cfg.pchomepay_app_id
+      const secret = cfg.pchomepay_secret
       const merchantTradeNo = order.order_number
 
       const params: Record<string, string> = {

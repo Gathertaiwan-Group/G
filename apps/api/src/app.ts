@@ -35,6 +35,7 @@ import { tiersRouter } from "./routes/tiers"
 import { campaignsRouter } from "./routes/campaigns"
 import { reviewsPublicRouter, reviewsAdminRouter } from "./routes/reviews"
 import { adminOrdersRouter } from "./routes/admin-orders"
+import { paymentConfigRouter } from "./routes/payment-config"
 
 export const app = express()
 
@@ -77,6 +78,7 @@ app.use("/logistics", logisticsRouter)
 app.use("/subscription-plans", subscriptionPlansRouter)
 app.use("/subscriptions", requireAuth, subscriptionsRouter)
 app.use("/webhooks/pchomepay-token", pchomepayTokenWebhookRouter)
+app.use("/", paymentConfigRouter)
 app.use("/posts", postsPublicRouter)
 app.use("/admin/posts", postsAdminRouter)
 app.use("/post-categories", postCategoriesPublicRouter)

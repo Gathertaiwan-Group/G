@@ -2,11 +2,9 @@ import { Router } from "express"
 import { supabase } from "../../lib/supabase"
 import { verifyCheckMacValue } from "../../lib/pchomepay"
 import { encryptToken } from "../../lib/token-encryption"
+import { getPaymentConfig } from "../../lib/provider-config"
 
 export const pchomepayTokenWebhookRouter = Router()
-
-const HASH_KEY = process.env.PCHOMEPAY_HASH_KEY ?? ""
-const HASH_IV = process.env.PCHOMEPAY_HASH_IV ?? ""
 
 // POST /webhooks/pchomepay-token — PChomePay token registration callback
 // MerchantOrderNo format: TOKREG_{subscriptionId}
@@ -14,7 +12,8 @@ pchomepayTokenWebhookRouter.post("/", async (req, res) => {
   const params = req.body as Record<string, string>
 
   // Verify CheckMacValue (timing-safe)
-  if (!verifyCheckMacValue(params, HASH_KEY, HASH_IV)) {
+  const cfg = await getPaymentConfig()
+  if (!verifyCheckMacValue(params, cfg.pchomepay_hash_key, cfg.pchomepay_hash_iv)) {
     res.status(400).send("0|SignatureError"); return
   }
 

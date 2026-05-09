@@ -1,8 +1,5 @@
 import { createHash } from "crypto"
-
-const MERCHANT_ID = process.env.ECPAY_MERCHANT_ID ?? ""
-const HASH_KEY = process.env.ECPAY_HASH_KEY ?? ""
-const HASH_IV = process.env.ECPAY_HASH_IV ?? ""
+import { getPaymentConfig } from "./provider-config"
 
 const BASE_URL = process.env.ECPAY_SANDBOX === "true"
   ? "https://logistics-stage.ecpay.com.tw"
@@ -34,9 +31,10 @@ export async function createCvsLogistics(
 ): Promise<CvsLogisticsResult> {
   const merchantTradeNo = `RRL${Date.now()}`
   const siteUrl = process.env.SITE_URL ?? "https://realreal.cc"
+  const cfg = await getPaymentConfig()
 
   const fields: Record<string, string> = {
-    MerchantID: MERCHANT_ID,
+    MerchantID: cfg.ecpay_merchant_id,
     MerchantTradeNo: merchantTradeNo,
     MerchantTradeDate: new Date()
       .toLocaleString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
@@ -57,7 +55,7 @@ export async function createCvsLogistics(
     IsCollection: "N",
     ServerReplyURL: `${siteUrl}/webhooks/ecpay-logistics`,
   }
-  fields.CheckMacValue = buildCheckMacValue(fields, HASH_KEY, HASH_IV)
+  fields.CheckMacValue = buildCheckMacValue(fields, cfg.ecpay_hash_key, cfg.ecpay_hash_iv)
 
   const response = await fetch(`${BASE_URL}/Express/Create`, {
     method: "POST",
@@ -91,9 +89,10 @@ export async function createHomeDelivery(
 ): Promise<HomeDeliveryResult> {
   const merchantTradeNo = `RRH${Date.now()}`
   const siteUrl = process.env.SITE_URL ?? "https://realreal.cc"
+  const cfg = await getPaymentConfig()
 
   const fields: Record<string, string> = {
-    MerchantID: MERCHANT_ID,
+    MerchantID: cfg.ecpay_merchant_id,
     MerchantTradeNo: merchantTradeNo,
     MerchantTradeDate: new Date()
       .toLocaleString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
@@ -114,7 +113,7 @@ export async function createHomeDelivery(
     IsCollection: "N",
     ServerReplyURL: `${siteUrl}/webhooks/ecpay-logistics`,
   }
-  fields.CheckMacValue = buildCheckMacValue(fields, HASH_KEY, HASH_IV)
+  fields.CheckMacValue = buildCheckMacValue(fields, cfg.ecpay_hash_key, cfg.ecpay_hash_iv)
 
   const response = await fetch(`${BASE_URL}/Express/Create`, {
     method: "POST",

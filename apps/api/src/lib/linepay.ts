@@ -1,10 +1,8 @@
 import { createHmac, randomUUID } from "crypto"
+import { getPaymentConfig } from "./provider-config"
 
 // LINE Pay v3 API — https://pay.line.me/developers/apis/onlineApis
 // NOTE: LINE Pay does NOT support recurring / token payments. For subscriptions, use PChomePay only.
-
-const CHANNEL_ID = process.env.LINEPAY_CHANNEL_ID ?? ""
-const CHANNEL_SECRET = process.env.LINEPAY_CHANNEL_SECRET ?? ""
 
 const BASE_URL = process.env.LINEPAY_SANDBOX === "true"
   ? "https://sandbox-api-pay.line.me"
@@ -41,13 +39,14 @@ export async function requestPayment(
     },
   }
   const body = JSON.stringify(bodyObj)
-  const signature = signRequest(uri, body, CHANNEL_SECRET, nonce)
+  const cfg = await getPaymentConfig()
+  const signature = signRequest(uri, body, cfg.linepay_channel_secret, nonce)
 
   const response = await fetch(`${BASE_URL}${uri}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-LINE-ChannelId": CHANNEL_ID,
+      "X-LINE-ChannelId": cfg.linepay_channel_id,
       "X-LINE-Authorization-Nonce": nonce,
       "X-LINE-Authorization": signature,
     },
@@ -67,13 +66,14 @@ export async function confirmPayment(transactionId: string, amount: number): Pro
   const uri = `/v3/payments/${transactionId}/confirm`
   const nonce = randomUUID()
   const body = JSON.stringify({ amount, currency: "TWD" })
-  const signature = signRequest(uri, body, CHANNEL_SECRET, nonce)
+  const cfg = await getPaymentConfig()
+  const signature = signRequest(uri, body, cfg.linepay_channel_secret, nonce)
 
   const response = await fetch(`${BASE_URL}${uri}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-LINE-ChannelId": CHANNEL_ID,
+      "X-LINE-ChannelId": cfg.linepay_channel_id,
       "X-LINE-Authorization-Nonce": nonce,
       "X-LINE-Authorization": signature,
     },
