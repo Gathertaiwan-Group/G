@@ -1,44 +1,27 @@
-import nodemailer from "nodemailer"
+import { Resend } from "resend"
 
-const CLIENT_ID = process.env.GMAIL_CLIENT_ID
-const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET
-const REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN
-const FROM = process.env.GMAIL_FROM ?? "love@realreal.cc"
+const API_KEY = process.env.RESEND_API_KEY
+const FROM = process.env.RESEND_FROM_EMAIL ?? "誠真生活 RealReal <onboarding@resend.dev>"
 
-let transporter: nodemailer.Transporter | null = null
+let resend: Resend | null = null
 
-if (CLIENT_ID && CLIENT_SECRET && REFRESH_TOKEN) {
-  transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      type: "OAuth2",
-      user: FROM,
-      clientId: CLIENT_ID,
-      clientSecret: CLIENT_SECRET,
-      refreshToken: REFRESH_TOKEN,
-    },
-  })
-  console.log("[email] Gmail SMTP configured for", FROM)
+if (API_KEY) {
+  resend = new Resend(API_KEY)
+  console.log("[email] Resend configured, from:", FROM)
 } else {
-  console.warn("[email] Gmail credentials not set — emails will be logged but not sent")
+  console.warn("[email] RESEND_API_KEY not set — emails will be logged but not sent")
 }
 
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
-  if (!transporter) {
-    console.warn(`[email] Skipping send (no Gmail config): to=${to} subject="${subject}"`)
+  if (!resend) {
+    console.warn(`[email] Skipping send (no Resend config): to=${to} subject="${subject}"`)
     return
   }
 
-  try {
-    await transporter.sendMail({
-      from: `誠真生活 RealReal <${FROM}>`,
-      to,
-      subject,
-      html,
-    })
-    console.log(`[email] Sent: to=${to} subject="${subject}"`)
-  } catch (err) {
-    console.error(`[email] Failed to send: to=${to} subject="${subject}"`, err)
-    throw err
+  const { data, error } = await resend.emails.send({ from: FROM, to, subject, html })
+  if (error) {
+    console.error(`[email] Failed to send: to=${to} subject="${subject}"`, error)
+    throw error
   }
+  console.log(`[email] Sent: to=${to} subject="${subject}" id=${data?.id}`)
 }
