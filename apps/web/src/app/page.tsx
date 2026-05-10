@@ -48,14 +48,16 @@ async function findCategorySlug(needle: string): Promise<string | undefined> {
 
 /* ---------- sections ---------- */
 
-function AnnouncementBar() {
-  const messages = [
-    "加入會員立即享 95 折優惠",
-    "消費滿 499 超取免運",
-    "消費滿 999 宅配免運",
-  ]
+const DEFAULT_BANNER_MESSAGES = [
+  "加入會員立即享 95 折優惠",
+  "消費滿 499 超取免運",
+  "消費滿 999 宅配免運",
+]
+
+function AnnouncementBar({ messages }: { messages?: string[] }) {
+  const activeMessages = (messages && messages.length > 0) ? messages : DEFAULT_BANNER_MESSAGES
   // Duplicate messages so the marquee loops seamlessly
-  const items = [...messages, ...messages]
+  const items = [...activeMessages, ...activeMessages]
 
   return (
     <div className="overflow-hidden bg-[#10305a] text-white py-2 text-sm">
@@ -72,20 +74,35 @@ function AnnouncementBar() {
 }
 
 type HeroContent = {
+  eyebrow?: string
   heading?: string
   subheading?: string
   cta_text?: string
   cta_link?: string
+  cta_secondary_text?: string
+  cta_secondary_link?: string
   image?: string
   image_scale?: number      // percent, e.g. 100 = fill width, 60 = 60% scaled
   image_position_x?: number // 0–100, default 50
   image_position_y?: number // 0–100, default 50
 }
 
+type BannerContent = { messages?: string[] }
+
+type SectionTitles = {
+  protein?: string
+  fruit?: string
+  reviews?: string
+  blog?: string
+}
+
 function HeroSection({ content }: { content?: HeroContent | null }) {
+  const eyebrow = content?.eyebrow ?? "純淨植物力，為你的生活加分"
   const heading = content?.heading ?? "自純淨中補給，在誠真中安心"
   const ctaText = content?.cta_text ?? "立即選購"
   const ctaLink = content?.cta_link ?? "/shop"
+  const ctaSecondaryText = content?.cta_secondary_text ?? "了解品牌"
+  const ctaSecondaryLink = content?.cta_secondary_link ?? "/about"
   const bgImage = content?.image || "/brand/hero-banner.jpg"
   const bgScale = content?.image_scale ?? 100
   const bgPosX = content?.image_position_x ?? 50
@@ -122,7 +139,7 @@ function HeroSection({ content }: { content?: HeroContent | null }) {
         <div className="max-w-xl">
           {/* Eyebrow */}
           <p className="text-xs font-semibold uppercase tracking-[0.2em] mb-4" style={{ color: "#10305a", opacity: 0.5 }}>
-            純淨植物力，為你的生活加分
+            {eyebrow}
           </p>
 
           {/* Heading — nowrap so it stays on one line */}
@@ -158,7 +175,7 @@ function HeroSection({ content }: { content?: HeroContent | null }) {
               className="rounded-full px-8 text-[15px] h-12 hover:bg-[#10305a]/5"
               style={{ borderColor: "rgba(16,48,90,0.3)", color: "#10305a" }}
             >
-              <Link href="/about">了解品牌</Link>
+              <Link href={ctaSecondaryLink}>{ctaSecondaryText}</Link>
             </Button>
           </div>
 
@@ -177,7 +194,8 @@ function HeroSection({ content }: { content?: HeroContent | null }) {
   )
 }
 
-function MembershipSection() {
+function MembershipSection({ membershipImageUrl }: { membershipImageUrl?: string | null }) {
+  const imageSrc = membershipImageUrl ?? "https://realreal.cc/wp-content/uploads/2026/01/會員制度表0106-2.png"
   const tiers = [
     {
       name: "初心之友",
@@ -223,7 +241,7 @@ function MembershipSection() {
         {/* Membership tier image from WordPress */}
         <div className="mt-10">
           <Image
-            src="https://realreal.cc/wp-content/uploads/2026/01/會員制度表0106-2.png"
+            src={imageSrc}
             alt="會員等級：初心之友、知心之友、同心之友"
             width={1800}
             height={600}
@@ -635,11 +653,14 @@ export default async function HomePage() {
   ])
 
   // Fetch products, content and blog posts in parallel
-  const [proteinProducts, fruitProducts, heroContent, blogResult, testimonials] =
+  const [proteinProducts, fruitProducts, heroContent, bannerContent, sectionTitles, membershipImageContent, blogResult, testimonials] =
     await Promise.all([
       getProductsByCategory(proteinSlug ?? "protein"),
       getProductsByCategory(fruitSlug ?? "freeze-dried"),
       getSiteContent<HeroContent>("homepage_hero"),
+      getSiteContent<BannerContent>("homepage_banner"),
+      getSiteContent<SectionTitles>("homepage_section_titles"),
+      getSiteContent<{ url: string }>("homepage_membership_image"),
       getPosts({ limit: 3 }),
       getSiteContent<Testimonial[]>("testimonials"),
     ])
@@ -647,17 +668,17 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen">
       {/* 0. Announcement bar (marquee) */}
-      <AnnouncementBar />
+      <AnnouncementBar messages={bannerContent?.messages} />
 
       {/* 1. Hero */}
       <HeroSection content={heroContent} />
 
       {/* 2. Membership tiers */}
-      <MembershipSection />
+      <MembershipSection membershipImageUrl={membershipImageContent?.url} />
 
       {/* 3. Product section: 純植物蛋白粉 */}
       <ProductSection
-        title="純植物蛋白粉"
+        title={sectionTitles?.protein ?? "純植物蛋白粉"}
         products={proteinProducts}
         moreLabel="查看更多植物蛋白 →"
         moreHref={`/shop${proteinSlug ? `?category=${proteinSlug}` : ""}`}
@@ -666,7 +687,7 @@ export default async function HomePage() {
       {/* 4. Product section: 原相凍乾水果 */}
       <div className="bg-[#fffeee]">
         <ProductSection
-          title="原相凍乾水果"
+          title={sectionTitles?.fruit ?? "原相凍乾水果"}
           products={fruitProducts}
           moreLabel="查看更多凍乾水果 →"
           moreHref={`/shop${fruitSlug ? `?category=${fruitSlug}` : ""}`}
