@@ -20,6 +20,14 @@ import { supabase } from "../../lib/supabase"
 const VALID_TOKEN = "valid-token"
 const MOCK_USER_ID = "user-123"
 
+function mockSubscriptionsModuleEnabled() {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { value: { subscriptions: true } }, error: null }),
+  }
+}
+
 function mockAuth() {
   vi.mocked(supabase.auth.getUser).mockResolvedValue({
     data: { user: { id: MOCK_USER_ID, email: "test@example.com" } as never },
@@ -35,11 +43,15 @@ const mockPlans = [
 
 describe("GET /subscription-plans", () => {
   it("returns 200 with active plans (public, no auth required)", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
+    const plansQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: mockPlans, error: null }),
-    } as never)
+    }
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockSubscriptionsModuleEnabled() as never
+      return plansQuery as never
+    })
 
     const res = await request(app).get("/subscription-plans")
 
@@ -49,11 +61,15 @@ describe("GET /subscription-plans", () => {
   })
 
   it("returns 200 even without Authorization header", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
+    const plansQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: mockPlans, error: null }),
-    } as never)
+    }
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockSubscriptionsModuleEnabled() as never
+      return plansQuery as never
+    })
 
     const res = await request(app).get("/subscription-plans")
     expect(res.status).toBe(200)
@@ -63,6 +79,11 @@ describe("GET /subscription-plans", () => {
 describe("PATCH /subscriptions/:id", () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    // Ensure the subscriptions module gate always passes in these tests
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockSubscriptionsModuleEnabled() as never
+      return undefined as never
+    })
   })
 
   it("returns 401 without auth token", async () => {
@@ -90,14 +111,17 @@ describe("PATCH /subscriptions/:id", () => {
   it("returns 403 when subscription belongs to different user", async () => {
     mockAuth()
 
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { id: "sub-123", user_id: "other-user", status: "active" },
-        error: null,
-      }),
-    } as never)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockSubscriptionsModuleEnabled() as never
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: { id: "sub-123", user_id: "other-user", status: "active" },
+          error: null,
+        }),
+      } as never
+    })
 
     const res = await request(app)
       .patch("/subscriptions/sub-123")
@@ -121,25 +145,20 @@ describe("PATCH /subscriptions/:id", () => {
   it("returns 200 and updated status when pausing own subscription", async () => {
     mockAuth()
 
-    const mockFrom = vi.mocked(supabase.from)
-    mockFrom.mockReturnValueOnce({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { id: "sub-123", user_id: MOCK_USER_ID, status: "active" },
-        error: null,
-      }),
-    } as never)
+    // shared single mock — called twice: once for fetch, once for update
+    const single = vi.fn()
+      .mockResolvedValueOnce({ data: { id: "sub-123", user_id: MOCK_USER_ID, status: "active" }, error: null })
+      .mockResolvedValueOnce({ data: { id: "sub-123", status: "paused", updated_at: new Date().toISOString() }, error: null })
 
-    mockFrom.mockReturnValueOnce({
-      update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { id: "sub-123", status: "paused", updated_at: new Date().toISOString() },
-        error: null,
-      }),
-    } as never)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockSubscriptionsModuleEnabled() as never
+      return {
+        select: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single,
+      } as never
+    })
 
     const res = await request(app)
       .patch("/subscriptions/sub-123")
@@ -154,6 +173,11 @@ describe("PATCH /subscriptions/:id", () => {
 describe("GET /subscriptions", () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    // Ensure the subscriptions module gate always passes in these tests
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockSubscriptionsModuleEnabled() as never
+      return undefined as never
+    })
   })
 
   it("returns 401 without auth token", async () => {
@@ -164,16 +188,19 @@ describe("GET /subscriptions", () => {
   it("returns 200 with user subscriptions when authenticated", async () => {
     mockAuth()
 
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({
-        data: [
-          { id: "sub-1", plan_id: "plan-1", status: "active", next_billing_date: "2026-04-26", retry_count: 0, created_at: new Date().toISOString() },
-        ],
-        error: null,
-      }),
-    } as never)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockSubscriptionsModuleEnabled() as never
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockResolvedValue({
+          data: [
+            { id: "sub-1", plan_id: "plan-1", status: "active", next_billing_date: "2026-04-26", retry_count: 0, created_at: new Date().toISOString() },
+          ],
+          error: null,
+        }),
+      } as never
+    })
 
     const res = await request(app)
       .get("/subscriptions")

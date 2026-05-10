@@ -14,6 +14,8 @@ import { couponsRouter } from "./routes/coupons"
 import { analyticsRouter } from "./routes/analytics"
 import { invoicesRouter } from "./routes/invoices"
 import { amegoWebhookRouter } from "./routes/webhooks/amego"
+import { requireModule } from "@repo/modules"
+import { supabase } from "./lib/supabase"
 import { requireAuth } from "./middleware/auth"
 import { requireAdmin } from "./middleware/admin"
 import { ordersRouter } from "./routes/orders"
@@ -38,6 +40,9 @@ import { adminOrdersRouter } from "./routes/admin-orders"
 import { paymentConfigRouter } from "./routes/payment-config"
 
 export const app = express()
+
+const gate = (m: Parameters<typeof requireModule>[0]) =>
+  requireModule(m, { supabase, ttlMs: 60_000 })
 
 // CORS — must be first so preflight OPTIONS requests are handled before any auth checks
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -75,23 +80,23 @@ app.use("/webhooks/linepay", linepayWebhookRouter)
 app.use("/webhooks/jkopay", jkopayWebhookRouter)
 app.use("/webhooks/ecpay-logistics", ecpayLogisticsWebhookRouter)
 app.use("/logistics", logisticsRouter)
-app.use("/subscription-plans", subscriptionPlansRouter)
-app.use("/subscriptions", requireAuth, subscriptionsRouter)
+app.use("/subscription-plans", gate("subscriptions"), subscriptionPlansRouter)
+app.use("/subscriptions", gate("subscriptions"), requireAuth, subscriptionsRouter)
 app.use("/webhooks/pchomepay-token", pchomepayTokenWebhookRouter)
 app.use("/", paymentConfigRouter)
-app.use("/posts", postsPublicRouter)
-app.use("/admin/posts", postsAdminRouter)
-app.use("/post-categories", postCategoriesPublicRouter)
-app.use("/admin/post-categories", postCategoriesAdminRouter)
-app.use("/post-tags", postTagsPublicRouter)
-app.use("/admin/post-tags", postTagsAdminRouter)
+app.use("/posts", gate("cms_posts"), postsPublicRouter)
+app.use("/admin/posts", gate("cms_posts"), postsAdminRouter)
+app.use("/post-categories", gate("cms_posts"), postCategoriesPublicRouter)
+app.use("/admin/post-categories", gate("cms_posts"), postCategoriesAdminRouter)
+app.use("/post-tags", gate("cms_posts"), postTagsPublicRouter)
+app.use("/admin/post-tags", gate("cms_posts"), postTagsAdminRouter)
 app.use("/admin/media", requireAuth, requireEditor, mediaRouter)
 app.use("/", siteContentsRouter)
 app.use("/", usersRouter)
 app.use("/", tiersRouter)
 app.use("/", campaignsRouter)
-app.use("/products/:productId/reviews", reviewsPublicRouter)
-app.use("/admin/reviews", reviewsAdminRouter)
+app.use("/products/:productId/reviews", gate("product_reviews"), reviewsPublicRouter)
+app.use("/admin/reviews", gate("product_reviews"), reviewsAdminRouter)
 app.use((_req, res) => { res.status(404).json({ error: "Not found" }) })
 // Global error handler (must have 4 args for Express to treat it as error handler)
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

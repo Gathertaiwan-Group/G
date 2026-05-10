@@ -1,11 +1,14 @@
 import { Router } from "express"
 import { z } from "zod"
+import { requireModule } from "@repo/modules"
 import { supabase } from "../lib/supabase"
 import { requireAuth } from "../middleware/auth"
 import { requireAdmin } from "../middleware/admin"
 import { requireEditor } from "../middleware/editor"
 
 export const campaignsRouter = Router()
+
+const gateCampaigns = requireModule("campaigns", { supabase, ttlMs: 60_000 })
 
 // ---------------------------------------------------------------------------
 // Zod schemas
@@ -29,7 +32,7 @@ const campaignUpdateSchema = campaignCreateSchema.partial()
 // GET /admin/campaigns — list all campaigns (admin/editor)
 // ---------------------------------------------------------------------------
 
-campaignsRouter.get("/admin/campaigns", requireAuth, requireEditor, async (_req, res) => {
+campaignsRouter.get("/admin/campaigns", gateCampaigns, requireAuth, requireEditor, async (_req, res) => {
   const { data, error } = await supabase
     .from("campaigns")
     .select("*, membership_tiers(name), coupons(code)")
@@ -43,7 +46,7 @@ campaignsRouter.get("/admin/campaigns", requireAuth, requireEditor, async (_req,
 // GET /admin/campaigns/:id — single campaign detail (admin/editor)
 // ---------------------------------------------------------------------------
 
-campaignsRouter.get("/admin/campaigns/:id", requireAuth, requireEditor, async (req, res) => {
+campaignsRouter.get("/admin/campaigns/:id", gateCampaigns, requireAuth, requireEditor, async (req, res) => {
   const { data, error } = await supabase
     .from("campaigns")
     .select("*, membership_tiers(name), coupons(code)")
@@ -59,7 +62,7 @@ campaignsRouter.get("/admin/campaigns/:id", requireAuth, requireEditor, async (r
 // POST /admin/campaigns — create campaign (admin only)
 // ---------------------------------------------------------------------------
 
-campaignsRouter.post("/admin/campaigns", requireAuth, requireAdmin, async (req, res) => {
+campaignsRouter.post("/admin/campaigns", gateCampaigns, requireAuth, requireAdmin, async (req, res) => {
   const parsed = campaignCreateSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 
@@ -77,7 +80,7 @@ campaignsRouter.post("/admin/campaigns", requireAuth, requireAdmin, async (req, 
 // PUT /admin/campaigns/:id — update campaign (admin only)
 // ---------------------------------------------------------------------------
 
-campaignsRouter.put("/admin/campaigns/:id", requireAuth, requireAdmin, async (req, res) => {
+campaignsRouter.put("/admin/campaigns/:id", gateCampaigns, requireAuth, requireAdmin, async (req, res) => {
   const parsed = campaignUpdateSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 
@@ -97,7 +100,7 @@ campaignsRouter.put("/admin/campaigns/:id", requireAuth, requireAdmin, async (re
 // DELETE /admin/campaigns/:id — delete campaign (admin only)
 // ---------------------------------------------------------------------------
 
-campaignsRouter.delete("/admin/campaigns/:id", requireAuth, requireAdmin, async (req, res) => {
+campaignsRouter.delete("/admin/campaigns/:id", gateCampaigns, requireAuth, requireAdmin, async (req, res) => {
   const { error } = await supabase
     .from("campaigns")
     .delete()
@@ -111,7 +114,7 @@ campaignsRouter.delete("/admin/campaigns/:id", requireAuth, requireAdmin, async 
 // GET /campaigns/active — public, list currently active campaigns
 // ---------------------------------------------------------------------------
 
-campaignsRouter.get("/campaigns/active", async (_req, res) => {
+campaignsRouter.get("/campaigns/active", gateCampaigns, async (_req, res) => {
   const now = new Date().toISOString()
 
   const { data, error } = await supabase

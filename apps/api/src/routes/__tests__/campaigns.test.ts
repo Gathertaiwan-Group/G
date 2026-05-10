@@ -27,6 +27,14 @@ const mockCampaign = {
   coupons: null,
 }
 
+function mockCampaignsModuleEnabled() {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { value: { campaigns: true } }, error: null }),
+  }
+}
+
 // Helper: mock auth + admin role
 function mockAdminAuth() {
   vi.mocked(supabase.auth.getUser).mockResolvedValue({
@@ -35,6 +43,7 @@ function mockAdminAuth() {
   } as any)
   // requireAdmin / requireEditor reads user_profiles
   vi.mocked(supabase.from).mockImplementation((table: string) => {
+    if (table === "site_contents") return mockCampaignsModuleEnabled() as any
     if (table === "user_profiles") {
       return {
         select: vi.fn().mockReturnThis(),
@@ -53,6 +62,7 @@ function mockEditorAuth() {
     error: null,
   } as any)
   vi.mocked(supabase.from).mockImplementation((table: string) => {
+    if (table === "site_contents") return mockCampaignsModuleEnabled() as any
     if (table === "user_profiles") {
       return {
         select: vi.fn().mockReturnThis(),
@@ -80,6 +90,12 @@ function buildCampaignQuery(data: any = [mockCampaign], error: any = null) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // Default: campaigns module is enabled so gate passes for all tests.
+  // Individual tests can override supabase.from for specific tables.
+  vi.mocked(supabase.from).mockImplementation((table: string) => {
+    if (table === "site_contents") return mockCampaignsModuleEnabled() as any
+    return buildCampaignQuery() as any
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -103,6 +119,7 @@ describe("GET /admin/campaigns", () => {
       error: null,
     } as any)
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -124,6 +141,7 @@ describe("GET /admin/campaigns", () => {
 
     const campaignQuery = buildCampaignQuery([mockCampaign])
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -201,6 +219,7 @@ describe("POST /admin/campaigns", () => {
 
     const created = { ...mockCampaign, type: "discount" }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -228,6 +247,7 @@ describe("POST /admin/campaigns", () => {
 
     const created = { ...mockCampaign, type: "buy_x_get_y", config: { buy: 3, get: 1 } }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -260,6 +280,7 @@ describe("POST /admin/campaigns", () => {
 
     const created = { ...mockCampaign, type: "second_half_price" }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -287,6 +308,7 @@ describe("POST /admin/campaigns", () => {
 
     const created = { ...mockCampaign, type: "spend_threshold", config: { threshold: 1000, discount: 100 } }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -319,6 +341,7 @@ describe("POST /admin/campaigns", () => {
 
     const created = { ...mockCampaign, type: "combo_discount", config: { product_ids: ["p1", "p2"], discount: 50 } }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -351,6 +374,7 @@ describe("POST /admin/campaigns", () => {
 
     const created = { ...mockCampaign, type: "freebie", config: { free_product_id: "p3" } }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -383,6 +407,7 @@ describe("POST /admin/campaigns", () => {
 
     const created = { ...mockCampaign, type: "free_shipping" }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -410,6 +435,7 @@ describe("POST /admin/campaigns", () => {
 
     const created = { ...mockCampaign, type: "points_multiplier", config: { multiplier: 2 } }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -465,6 +491,7 @@ describe("PUT /admin/campaigns/:id", () => {
 
     const updated = { ...mockCampaign, name: "Updated Campaign" }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -512,6 +539,7 @@ describe("DELETE /admin/campaigns/:id", () => {
     mockAdminAuth()
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -536,15 +564,22 @@ describe("DELETE /admin/campaigns/:id", () => {
 // GET /campaigns/active (public)
 // ---------------------------------------------------------------------------
 
+function buildActiveCampaignQuery(data: any, error: any = null) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    lte: vi.fn().mockReturnThis(),
+    or: vi.fn().mockReturnThis(),
+    order: vi.fn().mockResolvedValue({ data, error }),
+  }
+}
+
 describe("GET /campaigns/active", () => {
   it("returns active campaigns without auth", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      lte: vi.fn().mockReturnThis(),
-      or: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: [mockCampaign], error: null }),
-    } as any)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
+      return buildActiveCampaignQuery([mockCampaign]) as any
+    })
 
     const res = await request(app).get("/campaigns/active")
     expect(res.status).toBe(200)
@@ -553,13 +588,10 @@ describe("GET /campaigns/active", () => {
   })
 
   it("returns empty array when no active campaigns", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      lte: vi.fn().mockReturnThis(),
-      or: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: [], error: null }),
-    } as any)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
+      return buildActiveCampaignQuery([]) as any
+    })
 
     const res = await request(app).get("/campaigns/active")
     expect(res.status).toBe(200)
@@ -567,13 +599,10 @@ describe("GET /campaigns/active", () => {
   })
 
   it("returns 500 when supabase errors", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      lte: vi.fn().mockReturnThis(),
-      or: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: null, error: { message: "db error" } }),
-    } as any)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockCampaignsModuleEnabled() as any
+      return buildActiveCampaignQuery(null, { message: "db error" }) as any
+    })
 
     const res = await request(app).get("/campaigns/active")
     expect(res.status).toBe(500)

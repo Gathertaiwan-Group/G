@@ -23,6 +23,14 @@ const mockReview = {
   created_at: new Date().toISOString(),
 }
 
+function mockReviewsModuleEnabled() {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { value: { product_reviews: true } }, error: null }),
+  }
+}
+
 function mockAdminAuth() {
   vi.mocked(supabase.auth.getUser).mockResolvedValue({
     data: { user: { id: "user-admin", email: "admin@test.com" } },
@@ -47,14 +55,18 @@ beforeEach(() => {
 
 describe("GET /products/:productId/reviews", () => {
   it("returns approved reviews for a product", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
+    const reviewQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
         data: [{ id: "rev-1", rating: 5, content: "Great!", author_name: "User", created_at: mockReview.created_at }],
         error: null,
       }),
-    } as any)
+    }
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockReviewsModuleEnabled() as any
+      return reviewQuery as any
+    })
 
     const res = await request(app).get("/products/prod-1/reviews")
     expect(res.status).toBe(200)
@@ -65,11 +77,15 @@ describe("GET /products/:productId/reviews", () => {
   })
 
   it("returns empty list and zero averageRating when no reviews", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
+    const reviewQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: [], error: null }),
-    } as any)
+    }
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockReviewsModuleEnabled() as any
+      return reviewQuery as any
+    })
 
     const res = await request(app).get("/products/prod-1/reviews")
     expect(res.status).toBe(200)
@@ -79,11 +95,15 @@ describe("GET /products/:productId/reviews", () => {
   })
 
   it("returns 500 on supabase error", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
+    const reviewQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: null, error: { message: "db error" } }),
-    } as any)
+    }
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockReviewsModuleEnabled() as any
+      return reviewQuery as any
+    })
 
     const res = await request(app).get("/products/prod-1/reviews")
     expect(res.status).toBe(500)
@@ -137,6 +157,7 @@ describe("POST /products/:productId/reviews", () => {
     mockUserAuth()
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockReviewsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -180,6 +201,7 @@ describe("PATCH /admin/reviews/:id", () => {
       error: null,
     } as any)
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockReviewsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -201,6 +223,7 @@ describe("PATCH /admin/reviews/:id", () => {
 
     const toggled = { ...mockReview, is_approved: false }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockReviewsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -231,6 +254,7 @@ describe("PATCH /admin/reviews/:id", () => {
     mockAdminAuth()
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockReviewsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -268,6 +292,7 @@ describe("DELETE /admin/reviews/:id", () => {
       error: null,
     } as any)
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockReviewsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -288,6 +313,7 @@ describe("DELETE /admin/reviews/:id", () => {
     mockAdminAuth()
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockReviewsModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),

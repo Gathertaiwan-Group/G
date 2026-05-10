@@ -1,11 +1,14 @@
 import { Router } from "express"
 import { z } from "zod"
+import { requireModule } from "@repo/modules"
 import { supabase } from "../lib/supabase"
 import { requireAuth } from "../middleware/auth"
 import { requireAdmin } from "../middleware/admin"
 import { getMemberDiscountRate } from "../lib/tier"
 
 export const tiersRouter = Router()
+
+const gateTiers = requireModule("membership_tiers", { supabase, ttlMs: 60_000 })
 
 // ---------------------------------------------------------------------------
 // Zod schemas
@@ -25,7 +28,7 @@ const tierUpdateSchema = tierCreateSchema.partial()
 // GET /membership-tiers — public, list all tiers ordered by sort_order
 // ---------------------------------------------------------------------------
 
-tiersRouter.get("/membership-tiers", async (_req, res) => {
+tiersRouter.get("/membership-tiers", gateTiers, async (_req, res) => {
   const { data, error } = await supabase
     .from("membership_tiers")
     .select("*")
@@ -39,7 +42,7 @@ tiersRouter.get("/membership-tiers", async (_req, res) => {
 // POST /admin/membership-tiers — create tier (admin only)
 // ---------------------------------------------------------------------------
 
-tiersRouter.post("/admin/membership-tiers", requireAuth, requireAdmin, async (req, res) => {
+tiersRouter.post("/admin/membership-tiers", gateTiers, requireAuth, requireAdmin, async (req, res) => {
   const parsed = tierCreateSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 
@@ -57,7 +60,7 @@ tiersRouter.post("/admin/membership-tiers", requireAuth, requireAdmin, async (re
 // PUT /admin/membership-tiers/:id — update tier (admin only)
 // ---------------------------------------------------------------------------
 
-tiersRouter.put("/admin/membership-tiers/:id", requireAuth, requireAdmin, async (req, res) => {
+tiersRouter.put("/admin/membership-tiers/:id", gateTiers, requireAuth, requireAdmin, async (req, res) => {
   const parsed = tierUpdateSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 
@@ -78,7 +81,7 @@ tiersRouter.put("/admin/membership-tiers/:id", requireAuth, requireAdmin, async 
 // Prevent deletion if users exist on this tier.
 // ---------------------------------------------------------------------------
 
-tiersRouter.delete("/admin/membership-tiers/:id", requireAuth, requireAdmin, async (req, res) => {
+tiersRouter.delete("/admin/membership-tiers/:id", gateTiers, requireAuth, requireAdmin, async (req, res) => {
   // Check if any users are on this tier
   const { count, error: countError } = await supabase
     .from("user_profiles")
@@ -103,7 +106,7 @@ tiersRouter.delete("/admin/membership-tiers/:id", requireAuth, requireAdmin, asy
 // GET /my-member-discount — return current user's discount rate (auth required)
 // ---------------------------------------------------------------------------
 
-tiersRouter.get("/my-member-discount", requireAuth, async (_req, res) => {
+tiersRouter.get("/my-member-discount", gateTiers, requireAuth, async (_req, res) => {
   const userId = res.locals.userId as string
   const discountRate = await getMemberDiscountRate(userId)
 
