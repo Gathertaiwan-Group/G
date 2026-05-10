@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import type { Brand } from "@repo/theme"
 
 const FOOTER_LINKS = [
   {
@@ -37,7 +38,13 @@ const FOOTER_LINKS = [
   },
 ]
 
-export function Footer() {
+export function Footer({ brand }: { brand: Brand }) {
+  // Literal fallbacks preserve current realreal layout if brand fields are empty.
+  const brandName = brand.name || "誠真生活 RealReal"
+  const logoSrc = brand.logo_url || "/logo.svg"
+  const nameParts = brandName.split(" ")
+  const brandNameLine1 = nameParts[0] || brandName
+  const brandNameLine2 = nameParts.slice(1).join(" ")
   return (
     <footer
       className="text-white"
@@ -49,15 +56,15 @@ export function Footer() {
           <div className="col-span-2">
             <div className="mb-4 flex items-center gap-3">
               <Image
-                src="/logo.svg"
-                alt="誠真生活"
+                src={logoSrc}
+                alt={brandName}
                 width={40}
                 height={40}
                 className="brightness-0 invert"
               />
               <div>
-                <p className="text-lg font-bold tracking-wide">誠真生活</p>
-                <p className="text-xs tracking-widest opacity-70">RealReal</p>
+                <p className="text-lg font-bold tracking-wide">{brandNameLine1}</p>
+                <p className="text-xs tracking-widest opacity-70">{brandNameLine2}</p>
               </div>
             </div>
             <p className="mt-4 max-w-xs text-sm leading-relaxed opacity-70">
@@ -144,6 +151,7 @@ export function Footer() {
           <div>
             <p className="mb-4 text-sm font-semibold tracking-wide">公司資訊</p>
             <ul className="space-y-2 text-sm opacity-70">
+              {/* TODO Phase v1.5: move to brand.legal_entity_name (legal entity, not brand-derivable) */}
               <li>誠真生活有限公司</li>
               <li>統編 60515111</li>
               <li>電話 02-66093066</li>
@@ -157,7 +165,7 @@ export function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-white/10">
         <div className="container mx-auto flex flex-col items-center justify-between gap-3 px-6 py-5 text-xs opacity-60 md:flex-row">
-          <p>&copy; 2026 誠真生活 All Rights Reserved</p>
+          <p>&copy; {new Date().getFullYear()} {brandName} All Rights Reserved</p>
           <div className="flex gap-6">
             <Link href="/privacy-policy" className="transition-opacity hover:opacity-100">
               隱私權條款

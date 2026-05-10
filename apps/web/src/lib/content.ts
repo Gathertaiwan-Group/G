@@ -1,3 +1,5 @@
+import { DEFAULT_BRAND, safeParseBrand, type Brand } from "@repo/theme"
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
 
 /* ---------- types ---------- */
@@ -30,6 +32,21 @@ export async function getSiteContent<T = unknown>(key: string): Promise<T | null
   } catch {
     return null
   }
+}
+
+/* ---------- brand ---------- */
+
+/**
+ * Fetch the active tenant brand from `site_contents.brand` and validate it
+ * against `brandSchema`. On any failure (network error, missing key, malformed
+ * row), returns `DEFAULT_BRAND` so the storefront never crashes — every caller
+ * is guaranteed a valid `Brand` shape.
+ */
+export async function getBrand(): Promise<Brand> {
+  const raw = await getSiteContent<unknown>("brand")
+  if (!raw) return DEFAULT_BRAND
+  const parsed = safeParseBrand(raw)
+  return parsed.success ? parsed.data : DEFAULT_BRAND
 }
 
 /* ---------- posts ---------- */

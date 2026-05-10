@@ -1,22 +1,7 @@
-"use client"
+import { getBrand } from "@/lib/content"
+import { StorefrontChrome } from "./StorefrontChrome"
 
-import { usePathname } from "next/navigation"
-import { Header } from "./Header"
-import { Footer } from "./Footer"
-
-export function StorefrontShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const isAdmin = pathname.startsWith("/admin")
-
-  if (isAdmin) {
-    return <>{children}</>
-  }
-
-  return (
-    <>
-      <Header />
-      <main className="min-h-[calc(100vh-4rem)]">{children}</main>
-      <Footer />
-    </>
-  )
+export async function StorefrontShell({ children }: { children: React.ReactNode }) {
+  const brand = await getBrand()
+  return <StorefrontChrome brand={brand}>{children}</StorefrontChrome>
 }

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ChevronRight } from "lucide-react"
 import { getProductBySlug } from "@/lib/catalog"
+import { getBrand } from "@/lib/content"
 import { AddToCartSection } from "@/components/product/AddToCartSection"
 import { ImageGallery } from "@/components/product/ImageGallery"
 import { ReviewForm } from "@/components/product/ReviewForm"
@@ -111,9 +112,10 @@ function RichContent({ html }: { html: string }) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const product = await getProductBySlug(slug)
+  const [product, brand] = await Promise.all([getProductBySlug(slug), getBrand()])
   if (!product) return { title: "商品不存在" }
-  return { title: `${product.name} | 誠真生活 RealReal`, description: product.description }
+  const brandName = brand.name || "誠真生活 RealReal"
+  return { title: `${product.name} | ${brandName}`, description: product.description }
 }
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {

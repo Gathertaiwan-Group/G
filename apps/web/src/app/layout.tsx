@@ -1,35 +1,30 @@
 import type { Metadata } from "next"
 import { Toaster } from "@/components/ui/sonner"
 import { StorefrontShell } from "@/components/layout/StorefrontShell"
+import { getBrand } from "@/lib/content"
 import "./globals.css"
 
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://realreal.cc"),
-  title: {
-    default: "誠真生活 RealReal | 純淨植物力健康食品",
-    template: "%s | 誠真生活 RealReal",
-  },
-  description:
-    "誠真生活 RealReal 是來自台灣的純素健康食品品牌，嚴選天然植物原料，提供高品質營養補充與健康零食，純粹投入，誠真健康。",
-  keywords: [
-    "誠真生活",
-    "RealReal",
-    "純素",
-    "健康食品",
-    "植物性",
-    "台灣",
-    "天然",
-    "營養補充",
-    "vegan",
-  ],
-  openGraph: {
-    type: "website",
-    locale: "zh_TW",
-    siteName: "誠真生活 RealReal",
-    title: "誠真生活 RealReal | 純淨植物力健康食品",
-    description:
-      "來自台灣的純素健康食品品牌，嚴選天然植物原料，純粹投入，誠真健康。",
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrand()
+  // Defensive fallbacks: even though `getBrand()` is guaranteed to return a
+  // valid Brand, keep literals here so a future regression cannot produce
+  // empty <title> tags or undefined Open Graph values on the live storefront.
+  const name = brand.name || "誠真生活 RealReal"
+  const tagline = brand.tagline || "純淨植物力，為你的健康加分"
+  const title = tagline ? `${name} | ${tagline}` : name
+  return {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://realreal.cc"),
+    title: { default: title, template: `%s | ${name}` },
+    description: tagline || name,
+    icons: { icon: brand.favicon_url || "/favicon.ico" },
+    openGraph: {
+      type: "website",
+      locale: "zh_TW",
+      siteName: name,
+      title,
+      description: tagline || name,
+    },
+  }
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
