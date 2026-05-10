@@ -7,14 +7,11 @@ export default async function HomePage() {
   await requirePlatformUser()
   const supabase = await createControlClient()
 
-  const { count: tenantCount } = await supabase.from("tenants")
-    .select("*", { count: "exact", head: true }).eq("status", "active")
-
-  const { count: queuedJobs } = await supabase.from("provisioning_jobs")
-    .select("*", { count: "exact", head: true }).eq("status", "queued")
-
-  const { count: failedJobs } = await supabase.from("provisioning_jobs")
-    .select("*", { count: "exact", head: true }).eq("status", "failed")
+  const [{ count: tenantCount }, { count: queuedJobs }, { count: failedJobs }] = await Promise.all([
+    supabase.from("tenants").select("*", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("provisioning_jobs").select("*", { count: "exact", head: true }).eq("status", "queued"),
+    supabase.from("provisioning_jobs").select("*", { count: "exact", head: true }).eq("status", "failed"),
+  ])
 
   return (
     <main className="p-8 space-y-6">

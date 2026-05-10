@@ -26,7 +26,7 @@ export default async function JobsPage() {
               <td>{j.step}</td>
               <td className={statusColor(j.status)}>{j.status}</td>
               <td>{j.attempt}</td>
-              <td className="max-w-xs truncate text-red-600">{j.last_error ?? ""}</td>
+              <td className="max-w-xs truncate text-red-600" title={j.last_error ?? ""}>{j.last_error ?? ""}</td>
             </tr>
           ))}
         </tbody>

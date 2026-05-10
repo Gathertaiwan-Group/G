@@ -11,20 +11,19 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
   const { data: tenant } = await supabase.from("tenants").select("*").eq("id", id).maybeSingle()
   if (!tenant) notFound()
 
-  const { data: infra } = await supabase.from("tenant_infrastructure")
-    .select("vercel_deployment_url, railway_api_url, railway_mcp_url, supabase_project_ref, resend_dkim_verified_at")
-    .eq("tenant_id", id).maybeSingle()
-
-  const { data: modules } = await supabase.from("tenant_modules")
-    .select("module, enabled, enabled_at").eq("tenant_id", id).order("module")
-
-  const { data: recentJobs } = await supabase.from("provisioning_jobs")
-    .select("step, status, attempt, last_error, created_at, finished_at")
-    .eq("tenant_id", id).order("created_at", { ascending: false }).limit(10)
-
-  const { data: recentHealth } = await supabase.from("tenant_health_log")
-    .select("checked_at, vercel_ok, api_ok, mcp_ok, supabase_ok")
-    .eq("tenant_id", id).order("checked_at", { ascending: false }).limit(20)
+  const [{ data: infra }, { data: modules }, { data: recentJobs }, { data: recentHealth }] = await Promise.all([
+    supabase.from("tenant_infrastructure")
+      .select("vercel_deployment_url, railway_api_url, railway_mcp_url, supabase_project_ref, resend_dkim_verified_at")
+      .eq("tenant_id", id).maybeSingle(),
+    supabase.from("tenant_modules")
+      .select("module, enabled, enabled_at").eq("tenant_id", id).order("module"),
+    supabase.from("provisioning_jobs")
+      .select("step, status, attempt, last_error, created_at, finished_at")
+      .eq("tenant_id", id).order("created_at", { ascending: false }).limit(10),
+    supabase.from("tenant_health_log")
+      .select("checked_at, vercel_ok, api_ok, mcp_ok, supabase_ok")
+      .eq("tenant_id", id).order("checked_at", { ascending: false }).limit(20),
+  ])
 
   return (
     <main className="p-8 space-y-6">
