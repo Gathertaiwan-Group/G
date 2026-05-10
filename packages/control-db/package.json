@@ -2,7 +2,7 @@
   "name": "@realreal/control-db",
   "version": "1.0.0",
   "main": "dist/index.js",
-  "types": "src/index.ts",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",

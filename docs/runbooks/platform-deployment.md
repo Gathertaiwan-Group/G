@@ -62,7 +62,7 @@ Deployed from **repo root** (monorepo). Key Vercel project settings:
 ### Railway (workers app)
 
 Deployed from **repo root** via `railway.toml` at `/railway.toml`:
-- Build command: `npm install --workspaces && npm run build -w @realreal/control-db && npm run build -w workers`
+- Build command: `npm install --workspaces && npx turbo build --filter=workers` (turbo resolves the `@realreal/control-db` workspace dep via `dependsOn: ["^build"]`)
 - Start command: `node apps/workers/dist/index.js`
 - Healthcheck path: `/health`
 
