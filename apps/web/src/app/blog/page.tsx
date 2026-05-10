@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { getPosts } from "@/lib/content"
 import type { Post } from "@/lib/content"
 import type { Metadata } from "next"
+import { gateModule } from "@repo/modules"
+import { createClient } from "@/lib/supabase/server"
 
 export const metadata: Metadata = {
   title: "聰明生活 | 誠真生活 RealReal",
@@ -91,6 +93,7 @@ export default async function BlogPage({
 }: {
   searchParams: Promise<{ page?: string; category?: string }>
 }) {
+  await gateModule(await createClient(), "cms_posts")
   const params = await searchParams
   const currentPage = Number(params.page) || 1
   const currentCategory = params.category || undefined

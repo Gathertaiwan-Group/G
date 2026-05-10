@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
+import { gateModule } from "@repo/modules"
+import { createClient } from "@/lib/supabase/server"
 
 export const metadata: Metadata = {
   title: "會員制度 | 誠真生活 RealReal",
@@ -68,7 +70,8 @@ const tiers = [
   },
 ]
 
-export default function MembershipPage() {
+export default async function MembershipPage() {
+  await gateModule(await createClient(), "membership_tiers")
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
       <h1 className="text-3xl font-bold mb-10 text-center text-[#10305a]">
