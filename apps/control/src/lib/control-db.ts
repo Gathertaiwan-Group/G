@@ -9,7 +9,13 @@ export async function createControlClient() {
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
-        setAll(cs) { cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) },
+        setAll(cs) {
+          try {
+            cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+          // setAll is called from Server Components where cookies() is read-only.
+          // Silently ignore — intentional per @supabase/ssr docs.
+          } catch {}
+        },
       },
     },
   )
