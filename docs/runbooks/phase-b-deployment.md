@@ -70,3 +70,19 @@ Cache TTL is 60s, so expect ~1 min before pages reflect the change.
 - Auth pages (`/auth/login` etc.) still hardcode `<Image src="/logo.svg">`. `BrandLogo` server component is ready; needs page-level layout slot refactor.
 - `/about` page hardcodes long-form description. Move to `site_contents.about_page` if v1.5 needs per-tenant about copy.
 - `member_only_products` registry has empty `routes_to_gate` / `nav_items` arrays — registry test exempts surfaceless modules.
+
+---
+
+# Phase C-1 — Realreal Registered as Tenant #1
+
+**Date:** 2026-05-10
+
+Migration `0012_tenant_infra_relax_mcp.sql` applied to control DB:
+- `railway_mcp_service_id` and `railway_mcp_url` nullable (MCP service backfills in C-3)
+
+INSERTED in control DB:
+- `tenants` row: slug=realreal, status=active, owner=armand7951, plan=standard
+- `tenant_infrastructure`: existing Vercel + Railway api + Supabase IDs; service_role key AES-256-GCM-encrypted with PLATFORM_KEK (247 bytes, round-trip-decrypt verified)
+- `tenant_modules`: 10 modules, 6 enabled mirroring `site_contents.module_config`
+
+Live: https://control-nu-seven.vercel.app/ shows "Active tenants: 1".
