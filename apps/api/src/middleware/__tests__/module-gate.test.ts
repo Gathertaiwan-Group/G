@@ -62,11 +62,18 @@ describe("module gating in apps/api", () => {
   })
 })
 
+// Note: requireModule's per-instance 60s cache means we cannot easily test
+// "disabled then enabled" in the same suite — the cached `false` answer would
+// persist past a config change. Each gated route is tested for the disabled-404
+// path here; the enabled pass-through is exercised by every other test in the
+// suite that hits these routes (their happy-path 200/4xx responses prove the
+// gate didn't intercept).
 describe.each([
   ["subscriptions", "/subscription-plans"],
   ["cms_posts", "/posts"],
   ["product_reviews", "/admin/reviews"],
   ["campaigns", "/admin/campaigns"],
+  ["membership_tiers", "/membership-tiers"],
 ])("module %s gating at %s", (mod, path) => {
   it(`returns 404 with gate error message when ${mod} disabled`, async () => {
     mockModuleConfig({ [mod]: false })
