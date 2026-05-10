@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { ReviewsTable } from "./_client"
+import { gateModule } from "@repo/modules"
 
 export const metadata = { title: "評價管理 | Admin" }
 
@@ -18,6 +19,7 @@ type Review = {
 
 export default async function AdminReviewsPage() {
   const supabase = await createClient()
+  await gateModule(supabase, "product_reviews")
   const {
     data: { user },
   } = await supabase.auth.getUser()

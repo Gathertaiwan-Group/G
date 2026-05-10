@@ -3,6 +3,8 @@ import Image from "next/image"
 import { notFound } from "next/navigation"
 import { getPostBySlug } from "@/lib/content"
 import type { Metadata } from "next"
+import { gateModule } from "@repo/modules"
+import { createClient } from "@/lib/supabase/server"
 
 type Props = {
   params: Promise<{ slug: string }>
@@ -39,6 +41,7 @@ function formatDate(dateStr: string | null) {
 }
 
 export default async function BlogPostPage({ params }: Props) {
+  await gateModule(await createClient(), "cms_posts")
   const { slug } = await params
   const post = await getPostBySlug(slug)
 

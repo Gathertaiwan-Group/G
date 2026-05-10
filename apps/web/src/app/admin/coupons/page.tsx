@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge"
 import { CreateCouponForm } from "./_client"
+import { gateModule } from "@repo/modules"
+import { createClient } from "@/lib/supabase/server"
 
 export const metadata = { title: "優惠券管理 | Admin" }
 
@@ -46,6 +48,7 @@ function formatValue(coupon: CouponRow): string {
 }
 
 export default async function AdminCouponsPage() {
+  await gateModule(await createClient(), "campaigns")
   const API_URL = process.env.RAILWAY_API_URL ?? "http://localhost:4000"
 
   let coupons: CouponRow[] = []

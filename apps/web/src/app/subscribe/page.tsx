@@ -2,6 +2,8 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { gateModule } from "@repo/modules"
+import { createClient } from "@/lib/supabase/server"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
 
@@ -20,6 +22,7 @@ export const metadata = {
 }
 
 export default async function SubscribePage() {
+  await gateModule(await createClient(), "subscriptions")
   const plans = await getSubscriptionPlans()
 
   return (
