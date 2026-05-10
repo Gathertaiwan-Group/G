@@ -62,8 +62,8 @@ Deployed from **repo root** (monorepo). Key Vercel project settings:
 ### Railway (workers app)
 
 Deployed from **repo root** via `railway.toml` at `/railway.toml`:
-- Build command: `npm install --workspaces && npm run build -w workers`
-- Start command: `node /app/apps/workers/dist/index.js`
+- Build command: `npm install --workspaces && npm run build -w @realreal/control-db && npm run build -w workers`
+- Start command: `node apps/workers/dist/index.js`
 - Healthcheck path: `/health`
 
 ---
@@ -141,11 +141,11 @@ vercel domains add platform.realreal.cc
 Once workers is healthy:
 ```bash
 INTERNAL_API_SECRET="<from /tmp/platform-secrets.txt>"
-BODY='{"tenant_id":null,"actor_type":"system","action":"phase-a-deploy.smoke","payload":{"test":true}}'
+BODY='{"tenant_id":null,"actor_type":"system","actor_id":null,"action":"phase-a-deploy.smoke","resource":null,"payload":{"test":true}}'
 SIG=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$INTERNAL_API_SECRET" | awk '{print $2}')
 curl -s -X POST \
   -H "Content-Type: application/json" \
-  -H "X-Signature: $SIG" \
+  -H "x-internal-signature: $SIG" \
   -d "$BODY" \
   https://platform-workers-production-4770.up.railway.app/internal/audit
 
