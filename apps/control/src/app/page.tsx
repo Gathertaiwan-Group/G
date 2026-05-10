@@ -1,14 +1,36 @@
 import { requirePlatformUser } from "@/lib/auth"
+import { createControlClient } from "@/lib/control-db"
 
 export const metadata = { title: "Platform Control" }
 
 export default async function HomePage() {
-  const user = await requirePlatformUser()
+  await requirePlatformUser()
+  const supabase = await createControlClient()
+
+  const [{ count: tenantCount }, { count: queuedJobs }, { count: failedJobs }] = await Promise.all([
+    supabase.from("tenants").select("*", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("provisioning_jobs").select("*", { count: "exact", head: true }).eq("status", "queued"),
+    supabase.from("provisioning_jobs").select("*", { count: "exact", head: true }).eq("status", "failed"),
+  ])
+
   return (
-    <main className="p-8 space-y-4">
-      <h1 className="text-xl font-semibold">Platform Control</h1>
-      <p className="text-sm text-muted-foreground">Signed in as {user.email}</p>
-      <p className="text-sm">Phase A scaffold — pages get real content in PR-A6.</p>
+    <main className="p-8 space-y-6">
+      <h1 className="text-xl font-semibold">Overview</h1>
+      <div className="grid grid-cols-3 gap-4">
+        <Stat label="Active tenants" value={tenantCount ?? 0} />
+        <Stat label="Queued jobs" value={queuedJobs ?? 0} />
+        <Stat label="Failed jobs" value={failedJobs ?? 0} colorIfNonZero="text-red-600" />
+      </div>
     </main>
+  )
+}
+
+function Stat({ label, value, colorIfNonZero }: { label: string; value: number; colorIfNonZero?: string }) {
+  const color = colorIfNonZero && value > 0 ? colorIfNonZero : "text-foreground"
+  return (
+    <div className="border rounded p-4">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <div className={`text-2xl font-semibold ${color}`}>{value}</div>
+    </div>
   )
 }
