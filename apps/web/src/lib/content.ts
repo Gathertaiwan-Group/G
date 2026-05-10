@@ -1,6 +1,12 @@
+import { cache } from "react"
 import { DEFAULT_BRAND, safeParseBrand, type Brand } from "@repo/theme"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
+
+// 3s timeout for site_contents reads — the brand fetch is on every storefront
+// render's critical path, so a slow API hop should fall back to DEFAULT_BRAND
+// quickly rather than hanging the page until Next's request timeout.
+const FETCH_TIMEOUT_MS = 3000
 
 /* ---------- types ---------- */
 
@@ -25,6 +31,7 @@ export async function getSiteContent<T = unknown>(key: string): Promise<T | null
   try {
     const res = await fetch(`${API_URL}/site-contents/${key}`, {
       cache: "no-store",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
     if (!res.ok) return null
     const json = await res.json()
@@ -41,13 +48,17 @@ export async function getSiteContent<T = unknown>(key: string): Promise<T | null
  * against `brandSchema`. On any failure (network error, missing key, malformed
  * row), returns `DEFAULT_BRAND` so the storefront never crashes — every caller
  * is guaranteed a valid `Brand` shape.
+ *
+ * Wrapped in React's `cache()` so multiple call sites within the same render
+ * (root layout metadata + StorefrontShell + per-page metadata) share a single
+ * fetch. Outside of a render context the wrapper is a no-op.
  */
-export async function getBrand(): Promise<Brand> {
+export const getBrand = cache(async (): Promise<Brand> => {
   const raw = await getSiteContent<unknown>("brand")
   if (!raw) return DEFAULT_BRAND
   const parsed = safeParseBrand(raw)
   return parsed.success ? parsed.data : DEFAULT_BRAND
-}
+})
 
 /* ---------- posts ---------- */
 

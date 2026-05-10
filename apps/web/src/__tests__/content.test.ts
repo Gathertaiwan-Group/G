@@ -99,6 +99,12 @@ describe("getBrand", () => {
     const brand = await getBrand()
     expect(brand).toEqual(DEFAULT_BRAND)
   })
+
+  it("returns DEFAULT_BRAND when API returns ok but data is null", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ data: null }) })
+    const brand = await getBrand()
+    expect(brand).toEqual(DEFAULT_BRAND)
+  })
 })
 
 /* ---- getPosts ---- */

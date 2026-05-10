@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   // empty <title> tags or undefined Open Graph values on the live storefront.
   const name = brand.name || "誠真生活 RealReal"
   const tagline = brand.tagline || "純淨植物力，為你的健康加分"
-  const title = tagline ? `${name} | ${tagline}` : name
+  const title = `${name} | ${tagline}`
   return {
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://realreal.cc"),
     title: { default: title, template: `%s | ${name}` },

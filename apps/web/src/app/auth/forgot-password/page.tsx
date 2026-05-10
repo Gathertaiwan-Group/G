@@ -32,6 +32,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center flex flex-col items-center">
+          {/* TODO B3 follow-up: replace with <BrandLogo /> server component once auth-page layout slot lands */}
           <Image src="/logo.svg" alt="誠真生活" width={150} height={75} />
         </div>
 
