@@ -1,10 +1,13 @@
 import { Router } from "express"
 import { z } from "zod"
+import { requireModule } from "@repo/modules"
 import { supabase } from "../lib/supabase"
 import { requireAuth } from "../middleware/auth"
 import { requireAdmin } from "../middleware/admin"
 
 export const couponsRouter = Router()
+
+const gateCampaigns = requireModule("campaigns", { supabase, ttlMs: 60_000 })
 
 // ---------------------------------------------------------------------------
 // Zod schemas
@@ -111,7 +114,7 @@ couponsRouter.post("/coupons/validate", requireAuth, async (req, res) => {
 // GET /admin/coupons — list all (admin only)
 // ---------------------------------------------------------------------------
 
-couponsRouter.get("/admin/coupons", requireAuth, requireAdmin, async (_req, res) => {
+couponsRouter.get("/admin/coupons", gateCampaigns, requireAuth, requireAdmin, async (_req, res) => {
   const { data, error } = await supabase
     .from("coupons")
     .select("*")
@@ -125,7 +128,7 @@ couponsRouter.get("/admin/coupons", requireAuth, requireAdmin, async (_req, res)
 // POST /admin/coupons — create coupon (admin only)
 // ---------------------------------------------------------------------------
 
-couponsRouter.post("/admin/coupons", requireAuth, requireAdmin, async (req, res) => {
+couponsRouter.post("/admin/coupons", gateCampaigns, requireAuth, requireAdmin, async (req, res) => {
   const parsed = couponCreateSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 
@@ -143,7 +146,7 @@ couponsRouter.post("/admin/coupons", requireAuth, requireAdmin, async (req, res)
 // PUT /admin/coupons/:id — update coupon (admin only)
 // ---------------------------------------------------------------------------
 
-couponsRouter.put("/admin/coupons/:id", requireAuth, requireAdmin, async (req, res) => {
+couponsRouter.put("/admin/coupons/:id", gateCampaigns, requireAuth, requireAdmin, async (req, res) => {
   const parsed = couponUpdateSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 
@@ -163,7 +166,7 @@ couponsRouter.put("/admin/coupons/:id", requireAuth, requireAdmin, async (req, r
 // DELETE /admin/coupons/:id — delete coupon (admin only)
 // ---------------------------------------------------------------------------
 
-couponsRouter.delete("/admin/coupons/:id", requireAuth, requireAdmin, async (req, res) => {
+couponsRouter.delete("/admin/coupons/:id", gateCampaigns, requireAuth, requireAdmin, async (req, res) => {
   const { error } = await supabase
     .from("coupons")
     .delete()
@@ -177,7 +180,7 @@ couponsRouter.delete("/admin/coupons/:id", requireAuth, requireAdmin, async (req
 // POST /admin/coupons/bulk-generate — generate N codes (admin only, max 100)
 // ---------------------------------------------------------------------------
 
-couponsRouter.post("/admin/coupons/bulk-generate", requireAuth, requireAdmin, async (req, res) => {
+couponsRouter.post("/admin/coupons/bulk-generate", gateCampaigns, requireAuth, requireAdmin, async (req, res) => {
   const parsed = bulkGenerateSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 

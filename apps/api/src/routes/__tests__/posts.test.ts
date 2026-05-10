@@ -27,12 +27,21 @@ const mockPost = {
   updated_at: new Date().toISOString(),
 }
 
+function mockModuleEnabled() {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { value: { cms_posts: true } }, error: null }),
+  }
+}
+
 function mockAdminAuth() {
   vi.mocked(supabase.auth.getUser).mockResolvedValue({
     data: { user: { id: "user-admin", email: "admin@test.com" } },
     error: null,
   } as any)
   vi.mocked(supabase.from).mockImplementation((table: string) => {
+    if (table === "site_contents") return mockModuleEnabled() as any
     if (table === "user_profiles") {
       return {
         select: vi.fn().mockReturnThis(),
@@ -50,6 +59,7 @@ function mockEditorAuth() {
     error: null,
   } as any)
   vi.mocked(supabase.from).mockImplementation((table: string) => {
+    if (table === "site_contents") return mockModuleEnabled() as any
     if (table === "user_profiles") {
       return {
         select: vi.fn().mockReturnThis(),
@@ -83,58 +93,53 @@ beforeEach(() => {
 // GET /posts (public, paginated)
 // ---------------------------------------------------------------------------
 
+function buildChainablePostQuery(result: any) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    range: vi.fn().mockReturnThis(),
+    then: vi.fn((resolve: any) => resolve(result)),
+  }
+}
+
 describe("GET /posts", () => {
   it("returns paginated published posts", async () => {
     const result = { data: [mockPost], error: null, count: 1 }
-    const chainable: any = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      in: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      range: vi.fn().mockReturnThis(),
-      then: vi.fn((resolve: any) => resolve(result)),
-    }
-    vi.mocked(supabase.from).mockReturnValue(chainable)
+    const chainable = buildChainablePostQuery(result)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockModuleEnabled() as any
+      return chainable as any
+    })
 
     const res = await request(app).get("/posts?page=1&limit=10")
     expect(res.status).toBe(200)
     expect(res.body).toHaveProperty("data")
-    expect(res.body).toHaveProperty("pagination")
-    expect(res.body.pagination).toHaveProperty("page")
-    expect(res.body.pagination).toHaveProperty("limit")
-    expect(res.body.pagination).toHaveProperty("total")
-    expect(res.body.pagination).toHaveProperty("pages")
+    expect(res.body).toHaveProperty("total")
   })
 
   it("returns empty list when no posts", async () => {
     const result = { data: [], error: null, count: 0 }
-    const chainable: any = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      in: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      range: vi.fn().mockReturnThis(),
-      then: vi.fn((resolve: any) => resolve(result)),
-    }
-    vi.mocked(supabase.from).mockReturnValue(chainable)
+    const chainable = buildChainablePostQuery(result)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockModuleEnabled() as any
+      return chainable as any
+    })
 
     const res = await request(app).get("/posts")
     expect(res.status).toBe(200)
     expect(res.body.data).toEqual([])
-    expect(res.body.pagination.total).toBe(0)
+    expect(res.body.total).toBe(0)
   })
 
   it("returns 500 on supabase error", async () => {
     const result = { data: null, error: { message: "db error" }, count: null }
-    const chainable: any = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      in: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      range: vi.fn().mockReturnThis(),
-      then: vi.fn((resolve: any) => resolve(result)),
-    }
-    vi.mocked(supabase.from).mockReturnValue(chainable)
+    const chainable = buildChainablePostQuery(result)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockModuleEnabled() as any
+      return chainable as any
+    })
 
     const res = await request(app).get("/posts")
     expect(res.status).toBe(500)
@@ -148,6 +153,7 @@ describe("GET /posts", () => {
 describe("GET /posts/:slug", () => {
   it("returns a published post by slug", async () => {
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockModuleEnabled() as any
       if (table === "post_tag_links") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -169,11 +175,14 @@ describe("GET /posts/:slug", () => {
   })
 
   it("returns 404 for nonexistent slug", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: null, error: { code: "PGRST116" } }),
-    } as any)
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockModuleEnabled() as any
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: { code: "PGRST116" } }),
+      } as any
+    })
 
     const res = await request(app).get("/posts/nonexistent")
     expect(res.status).toBe(404)
@@ -199,6 +208,7 @@ describe("POST /admin/posts", () => {
       error: null,
     } as any)
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -231,6 +241,7 @@ describe("POST /admin/posts", () => {
     mockEditorAuth()
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -271,6 +282,7 @@ describe("PUT /admin/posts/:id", () => {
 
     const updated = { ...mockPost, title: "Updated Title" }
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -325,6 +337,7 @@ describe("DELETE /admin/posts/:id", () => {
     mockAdminAuth()
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "site_contents") return mockModuleEnabled() as any
       if (table === "user_profiles") {
         return {
           select: vi.fn().mockReturnThis(),

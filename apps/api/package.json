@@ -26,6 +26,7 @@
     "vitest": "^4.1.2"
   },
   "dependencies": {
+    "@repo/modules": "*",
     "@supabase/supabase-js": "^2.100.1",
     "axios": "^1",
     "bullmq": "^5",
