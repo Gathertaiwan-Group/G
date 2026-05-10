@@ -107,6 +107,68 @@ describe("getBrand", () => {
   })
 })
 
+/* ---- getSiteContent homepage_* fallback behaviour ---- */
+
+describe("getSiteContent homepage_* keys", () => {
+  it("homepage_hero returns null on 404 → caller uses hardcoded fallback", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404 })
+    const result = await getSiteContent<{ heading?: string }>("homepage_hero")
+    expect(result).toBeNull()
+    // Caller-side fallback: result?.heading ?? "自純淨中補給，在誠真中安心"
+    const heading = result?.heading ?? "自純淨中補給，在誠真中安心"
+    expect(heading).toBe("自純淨中補給，在誠真中安心")
+  })
+
+  it("homepage_hero returns data when API responds", async () => {
+    const heroData = { heading: "TEST HEADING", eyebrow: "Test eyebrow" }
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: heroData }),
+    })
+    const result = await getSiteContent<{ heading?: string; eyebrow?: string }>("homepage_hero")
+    expect(result?.heading).toBe("TEST HEADING")
+    expect(result?.eyebrow).toBe("Test eyebrow")
+  })
+
+  it("homepage_banner returns null on network error → caller uses default messages", async () => {
+    fetchMock.mockRejectedValueOnce(new Error("Network error"))
+    const result = await getSiteContent<{ messages?: string[] }>("homepage_banner")
+    expect(result).toBeNull()
+    // Caller-side fallback
+    const messages = result?.messages ?? ["加入會員立即享 95 折優惠"]
+    expect(messages).toContain("加入會員立即享 95 折優惠")
+  })
+
+  it("homepage_banner returns messages array when API responds", async () => {
+    const bannerData = { messages: ["Free shipping on orders over 500", "Members get 5% off"] }
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: bannerData }),
+    })
+    const result = await getSiteContent<{ messages?: string[] }>("homepage_banner")
+    expect(result?.messages).toHaveLength(2)
+    expect(result?.messages?.[0]).toBe("Free shipping on orders over 500")
+  })
+
+  it("homepage_section_titles returns null on 404 → caller uses hardcoded section titles", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404 })
+    const result = await getSiteContent<{ protein?: string; fruit?: string }>("homepage_section_titles")
+    expect(result).toBeNull()
+    const proteinTitle = result?.protein ?? "純植物蛋白粉"
+    const fruitTitle = result?.fruit ?? "原相凍乾水果"
+    expect(proteinTitle).toBe("純植物蛋白粉")
+    expect(fruitTitle).toBe("原相凍乾水果")
+  })
+
+  it("homepage_membership_image returns null on 404 → caller uses hardcoded URL", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404 })
+    const result = await getSiteContent<{ url: string }>("homepage_membership_image")
+    expect(result).toBeNull()
+    const url = result?.url ?? "https://realreal.cc/wp-content/uploads/2026/01/會員制度表0106-2.png"
+    expect(url).toBe("https://realreal.cc/wp-content/uploads/2026/01/會員制度表0106-2.png")
+  })
+})
+
 /* ---- getPosts ---- */
 
 describe("getPosts", () => {
