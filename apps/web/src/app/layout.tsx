@@ -27,9 +27,19 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const brand = await getBrand()
   return (
-    <html lang="zh-TW">
+    <html
+      lang="zh-TW"
+      style={{
+        "--brand-primary": brand.colors.primary,
+        "--brand-primary-foreground": brand.colors.primary_foreground,
+        "--brand-accent": brand.colors.accent,
+        "--brand-background": brand.colors.background,
+        "--brand-foreground": brand.colors.foreground,
+      } as React.CSSProperties}
+    >
       <body className="font-sans antialiased">
         <StorefrontShell>{children}</StorefrontShell>
         <Toaster />
