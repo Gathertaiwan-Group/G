@@ -1,10 +1,14 @@
 import type { Metadata } from "next"
-import { getSiteContent } from "@/lib/content"
+import { getSiteContent, getBrand } from "@/lib/content"
 
-export const metadata: Metadata = {
-  title: "品牌故事 | 誠真生活 RealReal",
-  description:
-    "誠真生活是台灣在地的純素保健食品品牌，堅持以純淨原料與科學配方，為您帶來誠真健康。",
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrand()
+  const name = brand.name || "誠真生活 RealReal"
+  return {
+    title: `品牌故事 | ${name}`,
+    description:
+      "誠真生活是台灣在地的純素保健食品品牌，堅持以純淨原料與科學配方，為您帶來誠真健康。",
+  }
 }
 
 type AboutContent = {

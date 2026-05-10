@@ -1,9 +1,16 @@
 import type { Metadata } from "next"
-import { getSiteContent } from "@/lib/content"
+import { getBrand, getSiteContent } from "@/lib/content"
 
-export const metadata: Metadata = {
-  title: "隱私權政策 | 誠真生活 RealReal",
-  description: "誠真生活 RealReal 隱私權政策，說明我們如何蒐集、使用及保護您的個人資料。",
+// TODO Phase v1.5: move legal body to site_contents.privacy per tenant.
+// Today this is realreal-specific legal copy; tenants override via admin UI.
+
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrand()
+  const name = brand.name || "誠真生活 RealReal"
+  return {
+    title: `隱私權政策 | ${name}`,
+    description: `${name}隱私權政策，說明我們如何蒐集、使用及保護您的個人資料。`,
+  }
 }
 
 type PrivacyContent = {

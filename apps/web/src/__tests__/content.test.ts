@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
-import { getSiteContent, getPosts, getPostBySlug } from "@/lib/content"
+import { getSiteContent, getPosts, getPostBySlug, getBrand } from "@/lib/content"
+import { DEFAULT_BRAND } from "@repo/theme"
 
 const fetchMock = vi.fn()
 vi.stubGlobal("fetch", fetchMock)
@@ -51,6 +52,58 @@ describe("getSiteContent", () => {
     fetchMock.mockRejectedValueOnce(new Error("Network error"))
     const result = await getSiteContent("down")
     expect(result).toBeNull()
+  })
+})
+
+/* ---- getBrand ---- */
+
+describe("getBrand", () => {
+  it("returns parsed brand from API when site_contents.brand is valid", async () => {
+    const valid = {
+      name: "Tenant Co",
+      tagline: "Hello world",
+      logo_url: "/logo.svg",
+      favicon_url: "/favicon.ico",
+      colors: {
+        primary: "#10305a",
+        primary_foreground: "#ffffff",
+        accent: "#fffeee",
+        background: "#ffffff",
+        foreground: "#687279",
+      },
+      font_family: "gill-sans",
+    }
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ data: valid }) })
+    const brand = await getBrand()
+    expect(brand.name).toBe("Tenant Co")
+    expect(brand.colors.primary).toBe("#10305a")
+  })
+
+  it("returns DEFAULT_BRAND when API returns null/missing", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false })
+    const brand = await getBrand()
+    expect(brand).toEqual(DEFAULT_BRAND)
+  })
+
+  it("returns DEFAULT_BRAND when API returns malformed brand", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: { name: "", logo_url: "javascript:alert(1)" } }),
+    })
+    const brand = await getBrand()
+    expect(brand).toEqual(DEFAULT_BRAND)
+  })
+
+  it("returns DEFAULT_BRAND when fetch throws (network error)", async () => {
+    fetchMock.mockRejectedValueOnce(new Error("Network down"))
+    const brand = await getBrand()
+    expect(brand).toEqual(DEFAULT_BRAND)
+  })
+
+  it("returns DEFAULT_BRAND when API returns ok but data is null", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ data: null }) })
+    const brand = await getBrand()
+    expect(brand).toEqual(DEFAULT_BRAND)
   })
 })
 

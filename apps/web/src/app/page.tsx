@@ -5,21 +5,26 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ReviewImagesCarousel } from "@/components/ui/review-images-carousel"
 import { getProducts, getCategories } from "@/lib/catalog"
 import type { Product, Category } from "@/lib/catalog"
-import { getSiteContent, getPosts } from "@/lib/content"
+import { getBrand, getSiteContent, getPosts } from "@/lib/content"
 import type { Post } from "@/lib/content"
 import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
 
-export const metadata: Metadata = {
-  title: "誠真生活 RealReal — 純淨植物力，為你的健康加分",
-  description:
-    "誠真生活是台灣在地純素健康食品品牌，嚴選天然植物原料，堅持無添加、無負擔，為你帶來純粹的植物營養。",
-  openGraph: {
-    title: "誠真生活 RealReal",
-    description: "純淨植物力，為你的健康加分",
-    type: "website",
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrand()
+  const name = brand.name || "誠真生活 RealReal"
+  const tagline = brand.tagline || "純淨植物力，為你的健康加分"
+  return {
+    title: `${name} — ${tagline}`,
+    description:
+      "誠真生活是台灣在地純素健康食品品牌，嚴選天然植物原料，堅持無添加、無負擔，為你帶來純粹的植物營養。",
+    openGraph: {
+      title: name,
+      description: tagline,
+      type: "website",
+    },
+  }
 }
 
 /* ---------- data fetching ---------- */

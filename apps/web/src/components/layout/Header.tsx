@@ -4,6 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useState, useRef, useEffect } from "react"
 import { Menu, X, User, ChevronDown } from "lucide-react"
+import type { Brand } from "@repo/theme"
 import { CartButton } from "@/components/cart/CartButton"
 
 const NAV_LINKS = [
@@ -24,7 +25,10 @@ const NAV_LINKS = [
 ]
 
 
-export function Header() {
+export function Header({ brand }: { brand: Brand }) {
+  // Literal fallbacks for safety if brand props ever arrive empty.
+  const brandName = brand.name || "誠真生活 RealReal"
+  const logoSrc = brand.logo_url || "/logo.svg"
   const [mobileOpen, setMobileOpen] = useState(false)
   const [productOpen, setProductOpen] = useState(false)
   const dropdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -56,8 +60,8 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="flex-shrink-0">
             <Image
-              src="/logo.svg"
-              alt="誠真生活 RealReal"
+              src={logoSrc}
+              alt={brandName}
               width={176}
               height={88}
               className="h-14 w-auto"

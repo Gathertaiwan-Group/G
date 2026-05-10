@@ -1,9 +1,16 @@
 import type { Metadata } from "next"
-import { getSiteContent } from "@/lib/content"
+import { getBrand, getSiteContent } from "@/lib/content"
 
-export const metadata: Metadata = {
-  title: "服務條款 | 誠真生活 RealReal",
-  description: "誠真生活 RealReal 服務條款，請於使用本網站前詳閱。",
+// TODO Phase v1.5: move legal body to site_contents.terms per tenant.
+// Today this is realreal-specific legal copy; tenants override via admin UI.
+
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrand()
+  const name = brand.name || "誠真生活 RealReal"
+  return {
+    title: `服務條款 | ${name}`,
+    description: `${name}服務條款，請於使用本網站前詳閱。`,
+  }
 }
 
 export default async function TermsPage() {

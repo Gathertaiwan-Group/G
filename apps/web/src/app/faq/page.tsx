@@ -1,9 +1,13 @@
 import type { Metadata } from "next"
-import { getSiteContent } from "@/lib/content"
+import { getBrand, getSiteContent } from "@/lib/content"
 
-export const metadata: Metadata = {
-  title: "常見問題 | 誠真生活 RealReal",
-  description: "關於誠真生活的訂購流程、配送方式、退換貨政策、訂閱制度等常見問題。",
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrand()
+  const name = brand.name || "誠真生活 RealReal"
+  return {
+    title: `常見問題 | ${name}`,
+    description: "關於誠真生活的訂購流程、配送方式、退換貨政策、訂閱制度等常見問題。",
+  }
 }
 
 type FaqItem = { q: string; a: string }

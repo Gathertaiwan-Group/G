@@ -5,10 +5,16 @@ import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/ProductGr
 import { CategoryFilter } from "@/components/catalog/CategoryFilter"
 import { SortSelect } from "@/components/catalog/SortSelect"
 import { Pagination } from "@/components/catalog/Pagination"
+import { getBrand } from "@/lib/content"
+import type { Metadata } from "next"
 
-export const metadata = {
-  title: "商品目錄",
-  description: "瀏覽誠真生活 RealReal 全系列純素健康食品，找到最適合您的天然營養選擇。",
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrand()
+  const name = brand.name || "誠真生活 RealReal"
+  return {
+    title: "商品目錄",
+    description: `瀏覽${name}全系列純素健康食品，找到最適合您的天然營養選擇。`,
+  }
 }
 
 const PAGE_SIZE = 24
