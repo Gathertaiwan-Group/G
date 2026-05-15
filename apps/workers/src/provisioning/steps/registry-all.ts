@@ -5,4 +5,6 @@ import "./resend-setup"
 import "./cloudflare-dns"
 import "./vercel-setup"
 import "./railway-setup"
+import "./domain-finalize"
+import "./tenant-finalize"
 export {}
