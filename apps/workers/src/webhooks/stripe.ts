@@ -1,24 +1,15 @@
 import { Router, type Request, type Response } from "express"
 import Stripe from "stripe"
 import pino from "pino"
-import { createControlClient } from "@realreal/control-db"
+import { createControlClient, stripeEvents, tenants, jobs,
+         type ProvisioningStep } from "@realreal/control-db"
 
 const log = pino({ name: "stripe-webhook" })
 
-// In-memory idempotency cache. Phase A only — Phase D will move this to a
-// persistent table (stripe_events) so multi-instance + restarts dedupe correctly.
-const seenEventIds = new Set<string>()
-const SEEN_MAX = 5000
-
-function rememberEvent(id: string) {
-  seenEventIds.add(id)
-  if (seenEventIds.size > SEEN_MAX) {
-    // Drop the oldest by recreating from the tail. Simple FIFO trimming.
-    const tail = Array.from(seenEventIds).slice(-Math.floor(SEEN_MAX / 2))
-    seenEventIds.clear()
-    for (const t of tail) seenEventIds.add(t)
-  }
-}
+const STEPS: ProvisioningStep[] = [
+  "validate", "supabase_setup", "resend_setup", "cloudflare_dns",
+  "vercel_setup", "railway_setup", "domain_finalize", "tenant_finalize",
+]
 
 let cachedClient: Stripe | null = null
 function getStripe(): Stripe | null {
@@ -65,25 +56,54 @@ stripeWebhookRouter.post("/", async (req: Request, res: Response) => {
     return
   }
 
-  // Idempotency: dedupe on Stripe's event.id.
-  if (seenEventIds.has(event.id)) {
-    log.info({ eventId: event.id, type: event.type }, "duplicate stripe event; skipping")
+  let client
+  try {
+    client = createControlClient()
+  } catch (err) {
+    log.error({ err: err instanceof Error ? err.message : err }, "control db unavailable")
+    res.status(503).json({ error: "control_db_unavailable" })
+    return
+  }
+
+  const fresh = await stripeEvents.recordStripeEvent(client, event.id, event.type, event)
+  if (!fresh) {
+    log.info({ eventId: event.id }, "duplicate stripe event; skipping")
     res.status(200).json({ received: true, duplicate: true })
     return
   }
-  rememberEvent(event.id)
 
-  // Phase A: log only. Phase D will dispatch to handlers (subscription
-  // lifecycle, invoice paid/failed, customer events, etc.).
-  log.info({ eventId: event.id, type: event.type }, "received stripe event (no handlers in Phase A)")
+  if (event.type !== "checkout.session.completed") {
+    log.info({ eventId: event.id, type: event.type }, "non-provisioning event; recorded only")
+    res.status(200).json({ received: true })
+    return
+  }
 
-  // Touch the control client so a missing config surfaces here, but don't
-  // fail the webhook just because audit emit fails — Stripe will retry.
+  const obj = (event.data.object ?? {}) as {
+    metadata?: { slug?: string; plan?: string; owner_user_id?: string }
+  }
+  const md = obj.metadata ?? {}
+  if (!md.slug || !md.owner_user_id) {
+    log.error({ eventId: event.id }, "checkout missing slug/owner_user_id metadata")
+    res.status(200).json({ received: true, error: "missing_metadata" })
+    return
+  }
+
   try {
-    createControlClient()
+    const tenantId = await tenants.createTenant(client, {
+      slug: md.slug,
+      custom_domain: null,
+      owner_user_id: md.owner_user_id,
+      plan: md.plan ?? "standard",
+    })
+    await jobs.enqueueJobs(client, tenantId, STEPS)
+    log.info({ eventId: event.id, tenantId, slug: md.slug }, "tenant created + 8 steps enqueued")
   } catch (err) {
-    log.error({ err: err instanceof Error ? err.message : err }, "control db client unavailable")
+    log.error({ err: err instanceof Error ? err.message : err }, "provisioning enqueue failed")
+    // 500 → Stripe retries; recordStripeEvent already de-dupes a successful path.
+    res.status(500).json({ error: "enqueue_failed" })
+    return
   }
 
   res.status(200).json({ received: true })
+  return
 })
