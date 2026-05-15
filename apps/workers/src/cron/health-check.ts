@@ -16,11 +16,13 @@ interface ProbeResult {
 async function probe(
   url: string,
   okFor: (res: Response) => boolean,
+  headers?: Record<string, string>,
 ): Promise<ProbeResult> {
   try {
     const res = await fetch(url, {
       method: "GET",
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+      ...(headers ? { headers } : {}),
     })
     return { ok: okFor(res), detail: { status: res.status } }
   } catch (err) {
@@ -61,8 +63,20 @@ async function probeTenant(
   const mcpP = infra.railway_mcp_url
     ? probe(joinUrl(infra.railway_mcp_url, "/health"), (r) => r.ok)
     : Promise.resolve<ProbeResult>({ ok: false, detail: "no url" })
+  const supabaseAnon = infra.supabase_anon_key
   const supabaseP = infra.supabase_url
-    ? probe(joinUrl(infra.supabase_url, "/auth/v1/health"), (r) => r.ok)
+    ? supabaseAnon
+      ? probe(
+          joinUrl(infra.supabase_url, "/auth/v1/health"),
+          (r) => r.ok,
+          {
+            apikey: supabaseAnon,
+            Authorization: `Bearer ${supabaseAnon}`,
+          },
+        )
+      : probe(joinUrl(infra.supabase_url, "/auth/v1/health"), (r) => r.ok).then(
+          (r): ProbeResult => ({ ...r, detail: "no anon key" }),
+        )
     : Promise.resolve<ProbeResult>({ ok: false, detail: "no url" })
 
   const [vercelR, apiR, mcpR, supabaseR] = await Promise.allSettled([
