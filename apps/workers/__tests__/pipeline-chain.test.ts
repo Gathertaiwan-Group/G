@@ -27,21 +27,16 @@ import * as fx from "./fixtures/mgmt-responses"
 //      mgmt-responses.ts keeps the recorded values in the merged shapes.
 //
 //  A3. The plan asserts the chain ends `status === "active"` with supabase/
-//      vercel/railway ids + mcp hash in tenant_infrastructure. The MERGED
-//      railway-setup.ts persists only `railway_api_service_id` /
-//      `railway_mcp_service_id`, while the MERGED domain-finalize.ts hard-
-//      requires `railway_api_url` / `railway_mcp_url`. Nothing in merged code
-//      ever persists those URLs, so the real chain cannot reach
-//      domain_finalize -> tenant_finalize. To honour the plan's intent (drive
-//      the full chain to `active`) WITHOUT editing production logic, the test
-//      injects the post-railway URL reconciliation that the merged pipeline is
-//      missing via a single seam: after the railway_setup job succeeds the
-//      harness writes the two `railway_*_url` values that Railway would assign
-//      (matching railway-setup.ts's own comment: "domain_finalize resolves and
-//      persists them"). This is documented as `RAILWAY_URL_GAP` below and is
-//      ALSO independently asserted as a discovered merged-code bug, so the
-//      integration test both (a) verifies end-to-end ordering/state and
-//      (b) records the production gap rather than hiding it.
+//      vercel/railway ids + mcp hash in tenant_infrastructure, and that
+//      domain_finalize (which hard-requires `railway_api_url` /
+//      `railway_mcp_url`) runs. railway-setup.ts now creates a Railway public
+//      domain per service (getRailwayEnvironmentId + createRailwayServiceDomain)
+//      and persists `railway_api_url` / `railway_mcp_url` in the SAME upsert as
+//      the service ids, so the real chain reaches domain_finalize ->
+//      tenant_finalize with NO harness intervention. The previous
+//      `RAILWAY_URL_GAP` seam and its known-bug guard test have been removed
+//      now that the production gap is fixed; the chain is driven end-to-end
+//      using only the real step handlers.
 
 const fakeControl = vi.hoisted(() => {
   type Job = {
@@ -83,6 +78,8 @@ const m = vi.hoisted(() => ({
   setRailwayVars: vi.fn(),
   deployRailwayService: vi.fn(),
   pollRailwayHealthz: vi.fn(),
+  getRailwayEnvironmentId: vi.fn(),
+  createRailwayServiceDomain: vi.fn(),
   // resend / cloudflare
   addResendDomain: vi.fn(),
   upsertCnameRecord: vi.fn(),
@@ -146,6 +143,8 @@ vi.mock("@realreal/provisioning/clients/railway", () => ({
   setRailwayVars: m.setRailwayVars,
   deployRailwayService: m.deployRailwayService,
   pollRailwayHealthz: m.pollRailwayHealthz,
+  getRailwayEnvironmentId: m.getRailwayEnvironmentId,
+  createRailwayServiceDomain: m.createRailwayServiceDomain,
 }))
 vi.mock("@realreal/provisioning/clients/resend", () => ({
   addResendDomain: m.addResendDomain,
@@ -181,9 +180,13 @@ function primeHappyPath() {
   m.pollVercelReady.mockResolvedValue(fx.VERCEL_DEPLOY.url)
   m.addVercelDomain.mockResolvedValue(undefined)
   m.createRailwayProject.mockResolvedValue(fx.RAILWAY_PROJECT.id)
+  m.getRailwayEnvironmentId.mockResolvedValue(fx.RAILWAY_ENVIRONMENT.id)
   m.createRailwayService
     .mockResolvedValueOnce(fx.RAILWAY_API_SVC.id)
     .mockResolvedValueOnce(fx.RAILWAY_MCP_SVC.id)
+  m.createRailwayServiceDomain
+    .mockResolvedValueOnce(fx.RAILWAY_API_SVC.domain)
+    .mockResolvedValueOnce(fx.RAILWAY_MCP_SVC.domain)
   m.setRailwayVars.mockResolvedValue(undefined)
   m.deployRailwayService.mockResolvedValue(undefined)
   m.pollRailwayHealthz.mockResolvedValue(undefined)
@@ -199,20 +202,6 @@ function makeJob(step: string): { id: string; tenant_id: string; step: string; a
   const job = { id, tenant_id: "t1", step, attempt: 0, status: "queued" as string, last_error: null }
   state.jobs[id] = job
   return job
-}
-
-// RAILWAY_URL_GAP (see header A3): the merged pipeline never persists the
-// Railway public URLs that domain_finalize requires. Railway assigns these
-// once a service deploys; the harness simulates that assignment so the chain
-// can advance, exactly as railway-setup.ts's own comment promises. This is the
-// ONLY non-handler state mutation the harness performs, and the gap is also
-// asserted as a discovered bug in its own test below.
-function reconcileRailwayUrlsAfterDeploy() {
-  state.infra = {
-    ...(state.infra ?? {}),
-    railway_api_url: fx.RAILWAY_API_SVC.url,
-    railway_mcp_url: fx.RAILWAY_MCP_SVC.url,
-  }
 }
 
 beforeEach(() => {
@@ -252,8 +241,6 @@ describe("8-step pipeline chain (L2)", () => {
       job.status = "running"
       state.transitions.push({ step, status: "running" })
       await dispatchJob(job as never)
-      // RAILWAY_URL_GAP seam — see header A3 + dedicated bug test below.
-      if (step === "railway_setup") reconcileRailwayUrlsAfterDeploy()
     }
 
     // ── Ordering: dispatcher drove the steps in exactly STEP_ORDER ──────────
@@ -283,6 +270,11 @@ describe("8-step pipeline chain (L2)", () => {
       railway_project_id: fx.RAILWAY_PROJECT.id,
       railway_api_service_id: fx.RAILWAY_API_SVC.id,
       railway_mcp_service_id: fx.RAILWAY_MCP_SVC.id,
+      // railway_setup itself now creates+persists the public URLs (no harness
+      // seam) so domain_finalize's ordering guard passes and the chain reaches
+      // `active`.
+      railway_api_url: fx.RAILWAY_API_SVC.url,
+      railway_mcp_url: fx.RAILWAY_MCP_SVC.url,
       mcp_token_hash: expect.any(String),
     })
 
@@ -348,7 +340,10 @@ describe("8-step pipeline chain (L2)", () => {
     state.transitions.push({ step: "railway_setup", status: "running" })
     await dispatchJob(railwayJob as never)
     expect(railwayJob.status).toBe("success")
-    reconcileRailwayUrlsAfterDeploy() // RAILWAY_URL_GAP seam (see header A3)
+    // railway_setup itself persisted the public URLs on the successful retry
+    // (no harness seam) so domain_finalize can now proceed.
+    expect(state.infra?.railway_api_url).toBe(fx.RAILWAY_API_SVC.url)
+    expect(state.infra?.railway_mcp_url).toBe(fx.RAILWAY_MCP_SVC.url)
 
     for (const step of ["domain_finalize", "tenant_finalize"]) {
       const job = makeJob(step)
@@ -360,13 +355,13 @@ describe("8-step pipeline chain (L2)", () => {
     expect(state.tenant.status).toBe("active")
   })
 
-  // DISCOVERED MERGED-CODE BUG (see header A3, RAILWAY_URL_GAP). This test
-  // pins the production gap: with ONLY the merged step handlers (no harness
-  // URL reconciliation), railway_setup never persists railway_api_url /
-  // railway_mcp_url, so domain_finalize permanently fails its ordering guard
-  // and the pipeline can never reach `active`. Kept as an explicit, asserted
-  // record so the bug is visible, not silently patched in production code.
-  it("REGRESSION GUARD: merged railway_setup does not persist railway_*_url, so unaided domain_finalize fails (known gap)", async () => {
+  // REGRESSION GUARD (Phase D RAILWAY_URL fix). Pins the fix for the gap this
+  // test previously documented: railway_setup MUST itself create+persist
+  // railway_api_url / railway_mcp_url so that, with ONLY the real step
+  // handlers and NO harness URL reconciliation, domain_finalize's ordering
+  // guard passes and the chain reaches `active`. Inverts the old known-bug
+  // assertion to lock the behavior in.
+  it("REGRESSION GUARD: railway_setup persists railway_*_url so unaided domain_finalize completes", async () => {
     for (const step of ["validate", "supabase_setup", "resend_setup",
       "cloudflare_dns", "vercel_setup", "railway_setup"]) {
       const job = makeJob(step)
@@ -374,19 +369,33 @@ describe("8-step pipeline chain (L2)", () => {
       await dispatchJob(job as never)
       expect(job.status).toBe("success")
     }
-    // railway_setup persisted service IDs but NOT the public URLs.
+    // railway_setup persisted service IDs AND the public URLs in one upsert.
     expect(state.infra?.railway_api_service_id).toBe(fx.RAILWAY_API_SVC.id)
-    expect(state.infra?.railway_api_url).toBeUndefined()
-    expect(state.infra?.railway_mcp_url).toBeUndefined()
+    expect(state.infra?.railway_mcp_service_id).toBe(fx.RAILWAY_MCP_SVC.id)
+    expect(state.infra?.railway_api_url).toBe(fx.RAILWAY_API_SVC.url)
+    expect(state.infra?.railway_mcp_url).toBe(fx.RAILWAY_MCP_SVC.url)
+    // It derived the environment id then created a domain per service.
+    expect(m.getRailwayEnvironmentId).toHaveBeenCalledWith(
+      "rtok", fx.RAILWAY_PROJECT.id)
+    expect(m.createRailwayServiceDomain).toHaveBeenCalledTimes(2)
+    expect(m.createRailwayServiceDomain).toHaveBeenCalledWith(
+      "rtok", fx.RAILWAY_ENVIRONMENT.id, fx.RAILWAY_API_SVC.id)
+    expect(m.createRailwayServiceDomain).toHaveBeenCalledWith(
+      "rtok", fx.RAILWAY_ENVIRONMENT.id, fx.RAILWAY_MCP_SVC.id)
 
-    // domain_finalize's ordering guard therefore fails → dispatcher requeues
-    // (attempt 0 → 30s backoff). It can NEVER self-heal with merged code.
+    // domain_finalize's ordering guard now passes WITHOUT any workaround:
+    // it runs to success and the chain can reach `active`.
     const dfJob = makeJob("domain_finalize")
     dfJob.status = "running"
     await dispatchJob(dfJob as never)
-    expect(dfJob.status).toBe("queued")
-    expect(dfJob.last_error).toContain(
-      "vercel_setup + railway_setup must complete before domain_finalize")
-    expect(state.tenant.status).not.toBe("active")
+    expect(dfJob.status).toBe("success")
+    expect(dfJob.last_error).toBeNull()
+    expect(m.pollRailwayHealthz).toHaveBeenCalled()
+
+    const tfJob = makeJob("tenant_finalize")
+    tfJob.status = "running"
+    await dispatchJob(tfJob as never)
+    expect(tfJob.status).toBe("success")
+    expect(state.tenant.status).toBe("active")
   })
 })

@@ -70,7 +70,8 @@ describe("supabase-mgmt", () => {
 import { createVercelProject, setVercelEnv, triggerVercelDeploy, pollVercelReady,
          addVercelDomain, rollbackVercel } from "../vercel"
 import { createRailwayProject, createRailwayService, setRailwayVars,
-         deployRailwayService, pollRailwayHealthz } from "../railway"
+         deployRailwayService, pollRailwayHealthz,
+         getRailwayEnvironmentId, createRailwayServiceDomain } from "../railway"
 import { addResendDomain, getResendDnsRecords, pollResendVerified } from "../resend"
 import { upsertCnameRecord } from "../cloudflare"
 
@@ -173,6 +174,64 @@ describe("railway", () => {
     await expect(pollRailwayHealthz("https://svc.up.railway.app", { intervalMs: 1, maxMs: 1000 }))
       .resolves.toBeUndefined()
     expect(f).toHaveBeenCalledTimes(2)
+  })
+
+  it("getRailwayEnvironmentId returns the production environment node id", async () => {
+    const f = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: { project: { environments: { edges: [
+        { node: { id: "env_stg", name: "staging" } },
+        { node: { id: "env_prod", name: "production" } },
+      ] } } },
+    }), { status: 200 }))
+    vi.stubGlobal("fetch", f)
+    const id = await getRailwayEnvironmentId("t", "rwp_1")
+    expect(id).toBe("env_prod")
+    expect(callUrl(f, 0)).toBe("https://backboard.railway.app/graphql/v2")
+    const body = JSON.parse(callInit(f, 0).body)
+    expect(body.query).toContain("environments")
+    expect(body.variables).toEqual({ id: "rwp_1" })
+  })
+
+  it("getRailwayEnvironmentId falls back to the first environment when no production", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: { project: { environments: { edges: [
+        { node: { id: "env_only", name: "default" } },
+      ] } } },
+    }), { status: 200 })))
+    expect(await getRailwayEnvironmentId("t", "rwp_1")).toBe("env_only")
+  })
+
+  it("getRailwayEnvironmentId throws when graphql returns errors", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: null, errors: [{ message: "project not found" }],
+    }), { status: 200 })))
+    await expect(getRailwayEnvironmentId("t", "rwp_x"))
+      .rejects.toThrow(/getRailwayEnvironmentId: project not found/)
+  })
+
+  it("createRailwayServiceDomain posts serviceDomainCreate and returns the domain", async () => {
+    const f = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: { serviceDomainCreate: { domain: "api-pioneer.up.railway.app" } },
+    }), { status: 200 }))
+    vi.stubGlobal("fetch", f)
+    const domain = await createRailwayServiceDomain("t", "env_prod", "rws_1")
+    expect(domain).toBe("api-pioneer.up.railway.app")
+    expect(callUrl(f, 0)).toBe("https://backboard.railway.app/graphql/v2")
+    const init = callInit(f, 0)
+    expect(init.headers.Authorization).toBe("Bearer t")
+    const body = JSON.parse(init.body)
+    expect(body.query).toContain("serviceDomainCreate")
+    expect(body.variables).toEqual({
+      input: { environmentId: "env_prod", serviceId: "rws_1" },
+    })
+  })
+
+  it("createRailwayServiceDomain throws when graphql returns errors", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: null, errors: [{ message: "domain limit reached" }],
+    }), { status: 200 })))
+    await expect(createRailwayServiceDomain("t", "env_prod", "rws_1"))
+      .rejects.toThrow(/createRailwayServiceDomain: domain limit reached/)
   })
 })
 
