@@ -1,5 +1,3 @@
-import { randomBytes } from "node:crypto"
-import bcrypt from "bcryptjs"
 import { infrastructure, tenants } from "@realreal/control-db"
 import { runTenantSql } from "@realreal/provisioning/clients/supabase-mgmt"
 import { sendWelcomeEmail } from "../notify"
@@ -31,9 +29,13 @@ export const tenantFinalizeHandler: StepHandler = {
     const ref = ctx.infra?.supabase_project_ref
     if (!ref) throw new Error("supabase_setup must complete before tenant_finalize")
 
-    // 1. MCP token: plaintext emailed once, only bcrypt hash persisted
-    const mcpToken = randomBytes(32).toString("hex")
-    const mcpHash = await bcrypt.hash(mcpToken, 10)
+    // 1. MCP token: plaintext emailed once, only the sha256 hash persisted.
+    //    MUST use the shared infrastructure.hashMcpToken() helper so the stored
+    //    hash is byte-identical to what apps/mcp/src/lib/auth.ts computes
+    //    (sha256hex(token)) and matches via its exact `.eq("mcp_token_hash")`
+    //    lookup. A bcrypt hash can NEVER equal sha256hex(token), so a bcrypt
+    //    hash here would 401 every provisioned tenant forever.
+    const { token: mcpToken, hash: mcpHash } = infrastructure.hashMcpToken()
     await infrastructure.upsertInfrastructure(ctx.client, ctx.tenant.id,
       { mcp_token_hash: mcpHash }, ctx.kek)
 
