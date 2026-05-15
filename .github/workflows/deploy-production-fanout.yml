@@ -55,3 +55,21 @@ jobs:
           CONTROL_DB_URL: ${{ secrets.CONTROL_DB_URL }}
           CONTROL_DB_SERVICE_ROLE_KEY: ${{ secrets.CONTROL_DB_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/fanout-deploy.ts
+
+  monitor:
+    needs: promote
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - name: Post-deploy watch (1h, 5-min poll, 3-streak → rollback)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          CONTROL_DB_URL: ${{ secrets.CONTROL_DB_URL }}
+          CONTROL_DB_SERVICE_ROLE_KEY: ${{ secrets.CONTROL_DB_SERVICE_ROLE_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: npx tsx scripts/deploy-monitor-run.ts
