@@ -1,0 +1,57 @@
+name: deploy-production-fanout
+on:
+  push:
+    branches: [production]
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - name: Deploy + smoke-test canary
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          CONTROL_DB_URL: ${{ secrets.CONTROL_DB_URL }}
+          CONTROL_DB_SERVICE_ROLE_KEY: ${{ secrets.CONTROL_DB_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/fanout-deploy.ts --only=staging-canary
+      - name: Smoke
+        run: |
+          curl -fsS https://canary.platform.realreal.cc/ >/dev/null
+          curl -fsS https://api-canary.up.railway.app/health >/dev/null
+          curl -fsS https://mcp-canary.up.railway.app/healthz >/dev/null
+
+  migrations:
+    needs: canary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - name: Fan out tenant migrations
+        env:
+          SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+          CONTROL_DB_URL: ${{ secrets.CONTROL_DB_URL }}
+          CONTROL_DB_SERVICE_ROLE_KEY: ${{ secrets.CONTROL_DB_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/fanout-migrations.ts
+
+  promote:
+    needs: [canary, migrations]
+    runs-on: ubuntu-latest
+    environment: production-fanout      # GitHub Environments → manual approval gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - name: Fan out to all active tenants
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          CONTROL_DB_URL: ${{ secrets.CONTROL_DB_URL }}
+          CONTROL_DB_SERVICE_ROLE_KEY: ${{ secrets.CONTROL_DB_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/fanout-deploy.ts
