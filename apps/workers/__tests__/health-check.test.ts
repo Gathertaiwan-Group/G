@@ -54,12 +54,11 @@ describe("runHealthCheckOnce", () => {
         railway_api_url: "https://api.example.com",
         railway_mcp_url: "https://mcp.example.com",
         supabase_url: "https://db.example.com",
+        supabase_anon_key: "anon-key-t1",
       },
     }
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => okResponse(200)),
-    )
+    const fetchMock = vi.fn(async () => okResponse(200))
+    vi.stubGlobal("fetch", fetchMock)
 
     const run = await freshRun()
     await run()
@@ -72,6 +71,46 @@ describe("runHealthCheckOnce", () => {
       mcp_ok: true,
       supabase_ok: true,
     })
+
+    // Supabase probe must carry the tenant's anon key as the apikey header.
+    const supabaseCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("db.example.com"),
+    )
+    expect(supabaseCall).toBeDefined()
+    const init = supabaseCall?.[1] as RequestInit | undefined
+    const headers = init?.headers as Record<string, string> | undefined
+    expect(headers?.apikey).toBe("anon-key-t1")
+    expect(headers?.Authorization).toBe("Bearer anon-key-t1")
+  })
+
+  it("missing/empty anon key → supabase_ok false with 'no anon key' note, no throw", async () => {
+    activeTenants = [{ id: "t1" }]
+    infraByTenant = {
+      t1: {
+        tenant_id: "t1",
+        vercel_deployment_url: "https://store.example.com",
+        railway_api_url: "https://api.example.com",
+        railway_mcp_url: "https://mcp.example.com",
+        supabase_url: "https://db.example.com",
+        supabase_anon_key: "",
+      },
+    }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        // Supabase returns 401 when no apikey header is present.
+        if (input.includes("db.example.com")) return okResponse(401)
+        return okResponse(200)
+      }),
+    )
+
+    const run = await freshRun()
+    await expect(run()).resolves.toBeUndefined()
+
+    expect(recorded).toHaveLength(1)
+    expect(recorded[0].row.supabase_ok).toBe(false)
+    const details = recorded[0].row.details as { supabase?: unknown }
+    expect(details.supabase).toBe("no anon key")
   })
 
   it("api 500 + mcp fetch rejects → api_ok/mcp_ok false, others true, still recorded once", async () => {
@@ -83,6 +122,7 @@ describe("runHealthCheckOnce", () => {
         railway_api_url: "https://api.example.com",
         railway_mcp_url: "https://mcp.example.com",
         supabase_url: "https://db.example.com",
+        supabase_anon_key: "anon-key-t1",
       },
     }
     vi.stubGlobal(
@@ -115,6 +155,7 @@ describe("runHealthCheckOnce", () => {
         railway_api_url: "https://api.example.com",
         railway_mcp_url: null,
         supabase_url: "https://db.example.com",
+        supabase_anon_key: "anon-key-t1",
       },
     }
     vi.stubGlobal(
@@ -140,6 +181,7 @@ describe("runHealthCheckOnce", () => {
         railway_api_url: "https://api.example.com",
         railway_mcp_url: "https://mcp.example.com",
         supabase_url: "https://db.example.com",
+        supabase_anon_key: "anon-key-t1",
       },
       t2: {
         tenant_id: "t2",
@@ -147,6 +189,7 @@ describe("runHealthCheckOnce", () => {
         railway_api_url: "https://api2.example.com",
         railway_mcp_url: "https://mcp2.example.com",
         supabase_url: "https://db2.example.com",
+        supabase_anon_key: "anon-key-t2",
       },
     }
     vi.stubGlobal(

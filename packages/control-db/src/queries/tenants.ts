@@ -26,7 +26,7 @@ export async function getTenantInfrastructure(
 ): Promise<TenantInfrastructure | null> {
   const { data, error } = await c
     .from("tenant_infrastructure")
-    .select("tenant_id, vercel_deployment_url, railway_api_url, railway_mcp_url, supabase_url")
+    .select("tenant_id, vercel_deployment_url, railway_api_url, railway_mcp_url, supabase_url, supabase_anon_key")
     .eq("tenant_id", tenantId)
     .maybeSingle()
   if (error) throw error

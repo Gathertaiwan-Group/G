@@ -59,6 +59,7 @@ export interface TenantInfrastructure {
   railway_api_url: string | null
   railway_mcp_url: string | null
   supabase_url: string
+  supabase_anon_key: string
 }
 
 export interface HealthRow {
