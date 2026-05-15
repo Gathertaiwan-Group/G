@@ -57,8 +57,10 @@ on conflict (email) do nothing;`, "create mcp admin user")
     // 3. welcome email (site URL, MCP endpoint, plaintext token once)
     const siteUrl = ctx.tenant.custom_domain
       ? `https://${ctx.tenant.custom_domain}` : `https://${ctx.platformDomain}`
+    // v1: brand name == tenant slug (spec §12 Q5; v1.5 reads
+    // site_contents.brand.name). Documented in docs/customer-welcome-email.md.
     await sendWelcomeEmail({
-      to: ownerEmail, slug: ctx.tenant.slug, siteUrl,
+      to: ownerEmail, slug: ctx.tenant.slug, brandName: ctx.tenant.slug, siteUrl,
       mcpUrl: ctx.infra?.railway_mcp_url ?? "(pending)", mcpToken,
     })
 
