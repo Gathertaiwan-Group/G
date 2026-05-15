@@ -95,4 +95,35 @@ describe("tenant_finalize", () => {
     await expect(tenantFinalizeHandler.run(ctx())).rejects.toThrow("resend 500")
     expect(updateTenantStatus).not.toHaveBeenCalled()
   })
+
+  it("throws on SQL-injection slug and does NOT activate or run unsafe SQL", async () => {
+    const evil = "evil'); drop table users;--"
+    await expect(
+      tenantFinalizeHandler.run(ctx({
+        tenant: { id: "t1", slug: evil, custom_domain: null, owner_user_id: "u1" },
+      })),
+    ).rejects.toThrow(/invalid tenant slug/i)
+    expect(updateTenantStatus).not.toHaveBeenCalled()
+    // the raw injected payload must never reach runTenantSql
+    expect(runTenantSql).not.toHaveBeenCalledWith(
+      "pat", "ref", expect.stringContaining("drop table users"), expect.any(String),
+    )
+  })
+
+  it("throws on a slug containing a single quote (no activation)", async () => {
+    await expect(
+      tenantFinalizeHandler.run(ctx({
+        tenant: { id: "t1", slug: "ab'c", custom_domain: null, owner_user_id: "u1" },
+      })),
+    ).rejects.toThrow(/invalid tenant slug/i)
+    expect(updateTenantStatus).not.toHaveBeenCalled()
+    expect(runTenantSql).not.toHaveBeenCalled()
+  })
+
+  it("normal slug: SQL contains the safely single-quoted mcp email", async () => {
+    await tenantFinalizeHandler.run(ctx())
+    expect(runTenantSql).toHaveBeenCalledWith("pat", "ref",
+      expect.stringContaining("'mcp@foo.local'"), expect.any(String))
+    expect(updateTenantStatus).toHaveBeenCalledWith(expect.anything(), "t1", "active")
+  })
 })

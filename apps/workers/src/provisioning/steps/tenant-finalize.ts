@@ -6,6 +6,18 @@ import { sendWelcomeEmail } from "../notify"
 import { registerHandler } from "./registry"
 import type { StepHandler } from "./types"
 
+// Strict tenant-slug allowlist: lowercase alphanumeric + hyphen, must start
+// alphanumeric, length 1–63. Anything else is rejected before we build SQL.
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,62}$/
+
+// The Supabase Management API SQL endpoint takes a RAW query string with NO
+// bind parameters, so every value embedded in SQL must be escaped by hand.
+// Escape a value as a Postgres string literal: double single-quotes and wrap
+// in single quotes. Used for defense in depth even after slug validation.
+function sqlLiteral(s: string): string {
+  return `'${s.replace(/'/g, "''")}'`
+}
+
 export const tenantFinalizeHandler: StepHandler = {
   step: "tenant_finalize",
   async isComplete(ctx) {
@@ -27,10 +39,18 @@ export const tenantFinalizeHandler: StepHandler = {
 
     // 2. virtual admin user mcp@<slug>.local + role=admin (idempotent upsert).
     //    spec §8 — MCP server signs in as this user against apps/api.
-    const mcpEmail = `mcp@${ctx.tenant.slug}.local`
+    //    SECURITY: validate slug against a strict allowlist BEFORE building
+    //    any SQL — the Management API has no bind params, so a slug like
+    //    `evil'); drop ... --` would otherwise execute arbitrary SQL with
+    //    PAT privileges. Throw (fail the job) rather than silently sanitize.
+    const slug = ctx.tenant.slug
+    if (typeof slug !== "string" || !SLUG_RE.test(slug)) {
+      throw new Error(`invalid tenant slug: refusing to build SQL (slug=${JSON.stringify(slug)})`)
+    }
+    const mcpEmail = `mcp@${slug}.local`
     await runTenantSql(pat, ref, `
 insert into auth.users (id, email, role, raw_app_meta_data, email_confirmed_at)
-values (gen_random_uuid(), '${mcpEmail}', 'authenticated',
+values (gen_random_uuid(), ${sqlLiteral(mcpEmail)}, 'authenticated',
         '{"role":"admin"}'::jsonb, now())
 on conflict (email) do nothing;`, "create mcp admin user")
 
