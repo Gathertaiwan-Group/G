@@ -58,6 +58,42 @@ export async function deployRailwayService(token: string, serviceId: string): Pr
   )
 }
 
+// projectCreate only returns { id }; the environment id needed by
+// serviceDomainCreate must be fetched separately. A freshly created Railway
+// project always has a single default `production` environment.
+export async function getRailwayEnvironmentId(
+  token: string, projectId: string,
+): Promise<string> {
+  const d = await railwayGql<{
+    project: { environments: { edges: Array<{ node: { id: string; name: string } }> } }
+  }>(
+    token, "getRailwayEnvironmentId",
+    `query($id: String!) {
+      project(id: $id) { environments { edges { node { id name } } } }
+    }`,
+    { id: projectId },
+  )
+  const edges = d.project?.environments?.edges ?? []
+  const prod = edges.find(e => e.node.name === "production") ?? edges[0]
+  if (!prod) throw new Error(`getRailwayEnvironmentId: no environments for project ${projectId}`)
+  return prod.node.id
+}
+
+// Creates a Railway-managed public domain (xxxx.up.railway.app) for a service
+// in a given environment and returns the generated domain string.
+export async function createRailwayServiceDomain(
+  token: string, environmentId: string, serviceId: string,
+): Promise<string> {
+  const d = await railwayGql<{ serviceDomainCreate: { domain: string } }>(
+    token, "createRailwayServiceDomain",
+    `mutation($input: ServiceDomainCreateInput!) {
+      serviceDomainCreate(input: $input) { domain }
+    }`,
+    { input: { environmentId, serviceId } },
+  )
+  return d.serviceDomainCreate.domain
+}
+
 export async function pollRailwayHealthz(
   url: string, o: { intervalMs?: number; maxMs?: number } = {},
 ): Promise<void> {

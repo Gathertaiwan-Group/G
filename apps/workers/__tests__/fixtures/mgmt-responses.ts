@@ -25,12 +25,18 @@ export const VERCEL_DEPLOY = {
 }
 
 export const RAILWAY_PROJECT = { id: "rprj_pioneer" }
+// railway_setup queries the project's default environment, then calls
+// serviceDomainCreate per service. `domain` is the bare host Railway returns;
+// railway-setup.ts persists it as `https://<domain>`.
+export const RAILWAY_ENVIRONMENT = { id: "env_pioneer_prod" }
 export const RAILWAY_API_SVC = {
   id: "svc_api_pioneer",
+  domain: "api-pioneer.up.railway.app",
   url: "https://api-pioneer.up.railway.app",
 }
 export const RAILWAY_MCP_SVC = {
   id: "svc_mcp_pioneer",
+  domain: "mcp-pioneer.up.railway.app",
   url: "https://mcp-pioneer.up.railway.app",
 }
 

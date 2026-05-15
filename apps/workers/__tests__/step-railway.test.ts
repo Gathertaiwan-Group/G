@@ -7,18 +7,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // keeping every one of the plan's assertions verbatim.
 const {
   createRailwayProject, createRailwayService, setRailwayVars,
-  deployRailwayService, pollRailwayHealthz, upsertInfrastructure,
+  deployRailwayService, pollRailwayHealthz, getRailwayEnvironmentId,
+  createRailwayServiceDomain, upsertInfrastructure,
 } = vi.hoisted(() => ({
   createRailwayProject: vi.fn(),
   createRailwayService: vi.fn(),
   setRailwayVars: vi.fn(),
   deployRailwayService: vi.fn(),
   pollRailwayHealthz: vi.fn(),
+  getRailwayEnvironmentId: vi.fn(),
+  createRailwayServiceDomain: vi.fn(),
   upsertInfrastructure: vi.fn(),
 }))
 vi.mock("@realreal/provisioning/clients/railway", () => ({
   createRailwayProject, createRailwayService, setRailwayVars,
-  deployRailwayService, pollRailwayHealthz,
+  deployRailwayService, pollRailwayHealthz, getRailwayEnvironmentId,
+  createRailwayServiceDomain,
 }))
 vi.mock("@realreal/control-db", () => ({ infrastructure: { upsertInfrastructure } }))
 import { railwaySetupHandler } from "../src/provisioning/steps/railway-setup"
@@ -34,21 +38,33 @@ beforeEach(() => {
   process.env.INTERNAL_API_SECRET = "isecret"
   createRailwayProject.mockResolvedValue("rprj_1")
   createRailwayService.mockResolvedValueOnce("svc_api").mockResolvedValueOnce("svc_mcp")
+  getRailwayEnvironmentId.mockResolvedValue("env_prod")
+  createRailwayServiceDomain
+    .mockResolvedValueOnce("api.up.railway.app")
+    .mockResolvedValueOnce("mcp.up.railway.app")
 })
 
 describe("railway_setup", () => {
-  it("creates project + api + mcp services and persists their ids", async () => {
+  it("creates project + api + mcp services and persists their ids + public urls", async () => {
     await railwaySetupHandler.run(ctx({
       supabase_url: "https://r.supabase.co", supabase_anon_key: "anon" }))
     expect(createRailwayService).toHaveBeenCalledTimes(2)
+    expect(createRailwayServiceDomain).toHaveBeenCalledTimes(2)
     expect(upsertInfrastructure).toHaveBeenCalledWith(expect.anything(), "t1",
       expect.objectContaining({ railway_project_id: "rprj_1",
-        railway_api_service_id: "svc_api", railway_mcp_service_id: "svc_mcp" }),
+        railway_api_service_id: "svc_api", railway_mcp_service_id: "svc_mcp",
+        railway_api_url: "https://api.up.railway.app",
+        railway_mcp_url: "https://mcp.up.railway.app" }),
       expect.any(Buffer))
   })
-  it("isComplete true once both service ids stored", async () => {
+  it("isComplete true once both service ids + urls stored", async () => {
     expect(await railwaySetupHandler.isComplete(ctx({
-      railway_api_service_id: "a", railway_mcp_service_id: "m" }))).toBe(true)
+      railway_api_service_id: "a", railway_mcp_service_id: "m",
+      railway_api_url: "https://a", railway_mcp_url: "https://m" }))).toBe(true)
+  })
+  it("isComplete false when ids stored but urls missing (partial run re-runs)", async () => {
+    expect(await railwaySetupHandler.isComplete(ctx({
+      railway_api_service_id: "a", railway_mcp_service_id: "m" }))).toBe(false)
   })
   it("isComplete false when only one service id stored", async () => {
     expect(await railwaySetupHandler.isComplete(ctx({
