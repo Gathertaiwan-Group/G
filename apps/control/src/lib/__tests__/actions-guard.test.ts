@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs"
 const files = [
   "src/app/tenants/[id]/provision/actions.ts",
   "src/app/tenants/[id]/suspend/actions.ts",
+  "src/app/tenants/[id]/token/actions.ts",
 ]
 
 describe("server actions are auth-guarded", () => {

@@ -7,6 +7,7 @@ export function Nav() {
       <Link href="/tenants">Tenants</Link>
       <Link href="/jobs">Jobs</Link>
       <Link href="/audit">Audit</Link>
+      <Link href="/billing">Billing</Link>
     </nav>
   )
 }
