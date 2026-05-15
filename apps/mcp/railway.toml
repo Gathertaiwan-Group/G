@@ -1,0 +1,17 @@
+# Railway config for the `mcp` service (remote MCP server).
+#
+# The monorepo root railway.toml targets the `workers` service. Both the
+# `platform-workers` and `mcp` Railway services deploy by uploading the
+# monorepo root (so npm workspaces resolve), so the `mcp` service is pointed
+# at THIS file via its Railway "Config-as-code" path setting
+# (serviceInstance.railwayConfigFile = "apps/mcp/railway.toml"). Build and
+# start commands still run from the uploaded monorepo root (/app).
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install --workspaces && npx turbo build --filter=mcp"
+
+[deploy]
+startCommand = "node apps/mcp/dist/index.js"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
