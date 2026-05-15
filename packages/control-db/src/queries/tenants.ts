@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { Tenant } from "../types"
+import type { Tenant, TenantInfrastructure } from "../types"
 
 export async function listActiveTenants(c: SupabaseClient): Promise<Tenant[]> {
   const { data, error } = await c.from("tenants").select("*").eq("status", "active").order("created_at")
@@ -17,4 +17,18 @@ export async function getTenantBySlug(c: SupabaseClient, slug: string): Promise<
   const { data, error } = await c.from("tenants").select("*").eq("slug", slug).maybeSingle()
   if (error) throw error
   return (data as Tenant | null) ?? null
+}
+
+// Endpoints needed to probe a tenant's running infrastructure (health-check).
+export async function getTenantInfrastructure(
+  c: SupabaseClient,
+  tenantId: string,
+): Promise<TenantInfrastructure | null> {
+  const { data, error } = await c
+    .from("tenant_infrastructure")
+    .select("tenant_id, vercel_deployment_url, railway_api_url, railway_mcp_url, supabase_url")
+    .eq("tenant_id", tenantId)
+    .maybeSingle()
+  if (error) throw error
+  return (data as TenantInfrastructure | null) ?? null
 }
