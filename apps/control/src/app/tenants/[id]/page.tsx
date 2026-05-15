@@ -1,7 +1,9 @@
+import Link from "next/link"
 import { notFound } from "next/navigation"
 import { requirePlatformUser } from "@/lib/auth"
 import { createControlClient } from "@/lib/control-db"
 import { fmtDate, statusColor } from "@/lib/format"
+import { RotateToken } from "./token/RotateToken"
 
 export default async function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -29,6 +31,9 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
     <main className="p-8 space-y-6">
       <h1 className="text-xl font-semibold">{tenant.slug}</h1>
       <p className={`text-sm ${statusColor(tenant.status)}`}>{tenant.status}</p>
+      <Link href={`/tenants/${id}/audit`} className="text-sm underline">
+        View audit log →
+      </Link>
 
       <section>
         <h2 className="font-semibold mb-2">Infrastructure</h2>
@@ -50,6 +55,14 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
             <li key={m.module}>{m.enabled ? "✓" : "○"} {m.module}</li>
           ))}
         </ul>
+      </section>
+
+      <section>
+        <h2 className="font-semibold mb-2">MCP token</h2>
+        {/* Spec §8 platform-admin rotation. Plaintext is shown exactly once
+            in the client island below (never persisted/logged); incident
+            response is docs/runbooks/mcp-token-leak.md (PR-E5). */}
+        <RotateToken tenantId={id} />
       </section>
 
       <section>
