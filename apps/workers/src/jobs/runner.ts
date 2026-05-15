@@ -1,5 +1,7 @@
 import pino from "pino"
 import { createControlClient, jobs } from "@realreal/control-db"
+import { dispatchJob } from "../provisioning/dispatch"
+import "../provisioning/steps/registry-all" // side-effect: registers every handler
 
 const log = pino({ name: "job-runner" })
 
@@ -24,19 +26,7 @@ async function tick(): Promise<void> {
       "claimed provisioning job",
     )
 
-    // Phase A has no step handlers yet (those land in Phase B/C). Mark the job
-    // as failed with a clear reason so it doesn't sit in `running` forever.
-    try {
-      await jobs.markJobStatus(client, job.id, "failed", {
-        last_error: `no handler for step '${job.step}' in Phase A`,
-      })
-      log.warn({ jobId: job.id, step: job.step }, "marked job failed: no handler in Phase A")
-    } catch (markErr) {
-      log.error(
-        { jobId: job.id, err: markErr instanceof Error ? markErr.message : markErr },
-        "failed to mark job status",
-      )
-    }
+    await dispatchJob(job)
   } catch (err) {
     log.error({ err: err instanceof Error ? err.message : err }, "job runner tick failed")
   } finally {

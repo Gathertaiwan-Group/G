@@ -30,6 +30,17 @@ export async function markJobStatus(
   if (error) throw error
 }
 
+export async function requeueJob(
+  c: SupabaseClient, id: string, nextAttempt: number, delayMs: number, lastError: string,
+): Promise<void> {
+  const availableAt = new Date(Date.now() + delayMs).toISOString()
+  const { error } = await c.from("provisioning_jobs").update({
+    status: "queued", attempt: nextAttempt, last_error: lastError,
+    available_at: availableAt, started_at: null,
+  }).eq("id", id)
+  if (error) throw error
+}
+
 export async function enqueueJobs(
   c: SupabaseClient,
   tenantId: string,
