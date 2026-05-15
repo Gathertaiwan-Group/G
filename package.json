@@ -12,7 +12,8 @@
   },
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "infrastructure/provisioning"
   ],
   "packageManager": "npm@10.9.2"
 }
