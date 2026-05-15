@@ -29,6 +29,7 @@ export interface Tenant {
   plan: string | null
   created_at: string
   activated_at: string | null
+  custom_domain_verified_at: string | null
 }
 
 export interface ProvisioningJob {
@@ -55,11 +56,20 @@ export interface AuditEntry {
 
 export interface TenantInfrastructure {
   tenant_id: string
+  vercel_project_id: string | null
   vercel_deployment_url: string | null
+  railway_project_id: string | null
+  railway_api_service_id: string | null
   railway_api_url: string | null
+  railway_mcp_service_id: string | null
   railway_mcp_url: string | null
-  supabase_url: string
-  supabase_anon_key: string
+  supabase_project_ref: string | null
+  supabase_url: string | null
+  supabase_anon_key: string | null
+  resend_domain_id: string | null
+  resend_dkim_verified_at: string | null
+  cloudflare_zone_id: string | null
+  mcp_token_hash: string | null
 }
 
 export interface HealthRow {
