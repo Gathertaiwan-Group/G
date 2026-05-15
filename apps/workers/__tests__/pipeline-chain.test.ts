@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { STEP_ORDER } from "../src/provisioning/steps/types"
 import * as fx from "./fixtures/mgmt-responses"
@@ -119,6 +120,14 @@ vi.mock("@realreal/control-db", () => ({
     upsertInfrastructure: vi.fn(async (_c: unknown, _id: string,
       patch: Record<string, unknown>) => {
       state.infra = { ...(state.infra ?? {}), ...patch }
+    }),
+    // Faithful to the real packages/control-db helper and apps/mcp's
+    // sha256hex: generate a token + its sha256 hex hash together. Required
+    // now that tenant_finalize uses the shared helper instead of bcrypt.
+    hashMcpToken: vi.fn(() => {
+      const token = "0".repeat(64)
+      const hash = createHash("sha256").update(token, "utf8").digest("hex")
+      return { token, hash }
     }),
   },
 }))
