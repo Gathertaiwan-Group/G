@@ -64,6 +64,23 @@ export async function reapStuckRunningJobs(
   return (data ?? []) as Array<{ id: string; step: string; tenant_id: string }>
 }
 
+// Idempotent re-queue of a single provisioning step (spec §6 "Retry from this
+// step"). Mirrors the stuck-sweep / Phase-D runbook SQL exactly: reset attempt,
+// clear error, make immediately claimable. Handlers' isComplete() makes replay
+// safe. Scoped to (tenant_id, step) so retrying one failed step never disturbs
+// sibling jobs.
+export async function requeueStep(
+  c: SupabaseClient, tenantId: string, step: string,
+): Promise<void> {
+  const { error } = await c.from("provisioning_jobs")
+    .update({
+      status: "queued", attempt: 0, last_error: null,
+      started_at: null, available_at: new Date().toISOString(),
+    })
+    .eq("tenant_id", tenantId).eq("step", step)
+  if (error) throw new Error(`requeueStep(${tenantId},${step}): ${error.message}`)
+}
+
 export async function enqueueJobs(
   c: SupabaseClient,
   tenantId: string,

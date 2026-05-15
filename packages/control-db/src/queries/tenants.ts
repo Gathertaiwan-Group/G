@@ -55,6 +55,30 @@ export async function createTenant(c: SupabaseClient, a: CreateTenantArgs): Prom
   return (data as { id: string }).id
 }
 
+// Spec §9 tenant cancellation/suspension. Suspend freezes; resume restores to
+// active. Data is preserved (no infra teardown here — that is the §9 30-day
+// cron, out of Phase E scope). Status-transition validity (only suspend a
+// non-suspended tenant, only resume a suspended one) is enforced by the
+// control-plane action layer; these helpers are the raw mutators.
+export async function suspendTenant(
+  c: SupabaseClient, tenantId: string, reason: string,
+): Promise<void> {
+  const { error } = await c.from("tenants").update({
+    status: "suspended", suspended_at: new Date().toISOString(),
+    suspended_reason: reason,
+  }).eq("id", tenantId)
+  if (error) throw new Error(`suspendTenant(${tenantId}): ${error.message}`)
+}
+
+export async function resumeTenant(
+  c: SupabaseClient, tenantId: string,
+): Promise<void> {
+  const { error } = await c.from("tenants").update({
+    status: "active", suspended_at: null, suspended_reason: null,
+  }).eq("id", tenantId)
+  if (error) throw new Error(`resumeTenant(${tenantId}): ${error.message}`)
+}
+
 export async function updateTenantStatus(
   c: SupabaseClient, id: string, status: TenantStatus,
   patch: { suspended_reason?: string } = {},
