@@ -3,4 +3,6 @@ import "./validate"
 import "./supabase-setup"
 import "./resend-setup"
 import "./cloudflare-dns"
+import "./vercel-setup"
+import "./railway-setup"
 export {}
