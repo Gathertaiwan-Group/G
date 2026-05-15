@@ -53,6 +53,14 @@ export interface AuditEntry {
   payload: unknown
 }
 
+export interface TenantInfrastructure {
+  tenant_id: string
+  vercel_deployment_url: string | null
+  railway_api_url: string | null
+  railway_mcp_url: string | null
+  supabase_url: string
+}
+
 export interface HealthRow {
   tenant_id: string
   checked_at: string
