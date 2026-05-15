@@ -6,6 +6,7 @@ import { startRunner, stopRunner } from "./jobs/runner"
 import { scheduleHealthCheck } from "./cron/health-check"
 import { scheduleResendDkimVerify } from "./cron/resend-dkim-verify"
 import { scheduleStripeSync } from "./cron/stripe-sync"
+import { scheduleStuckJobSweep } from "./cron/stuck-job-sweep"
 
 const log = pino({ name: "workers" })
 
@@ -53,7 +54,12 @@ async function main(): Promise<void> {
   })
 
   startRunner()
-  const tasks = [scheduleHealthCheck(), scheduleResendDkimVerify(), scheduleStripeSync()]
+  const tasks = [
+    scheduleHealthCheck(),
+    scheduleResendDkimVerify(),
+    scheduleStripeSync(),
+    scheduleStuckJobSweep(),
+  ]
 
   const shutdown = async (signal: string) => {
     log.info({ signal }, "shutting down workers")
