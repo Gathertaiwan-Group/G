@@ -41,6 +41,29 @@ export async function requeueJob(
   if (error) throw error
 }
 
+// Re-queue any job stuck in 'running' longer than `olderThanMinutes`
+// (worker crashed mid-step, never released the claim). Returns the rows
+// that were reaped so the caller can alert. Pure PostgREST update — no RPC,
+// so no migration is required.
+export async function reapStuckRunningJobs(
+  c: SupabaseClient,
+  olderThanMinutes: number,
+): Promise<Array<{ id: string; step: string; tenant_id: string }>> {
+  const cutoff = new Date(Date.now() - olderThanMinutes * 60_000).toISOString()
+  const { data, error } = await c
+    .from("provisioning_jobs")
+    .update({
+      status: "queued",
+      available_at: new Date().toISOString(),
+      started_at: null,
+    })
+    .eq("status", "running")
+    .lt("started_at", cutoff)
+    .select("id, step, tenant_id")
+  if (error) throw error
+  return (data ?? []) as Array<{ id: string; step: string; tenant_id: string }>
+}
+
 export async function enqueueJobs(
   c: SupabaseClient,
   tenantId: string,

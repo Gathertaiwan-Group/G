@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest"
 import { createTenant, updateTenantStatus } from "../src/queries/tenants"
 import { upsertInfrastructure, getInfrastructure } from "../src/queries/infrastructure"
 import { recordStripeEvent } from "../src/queries/stripe-events"
+import { reapStuckRunningJobs } from "../src/queries/jobs"
 
 function mockClient(impl: Record<string, unknown>) {
   return impl as never
@@ -61,6 +62,49 @@ describe("getInfrastructure", () => {
     const c = mockClient({ from: vi.fn().mockReturnValue({ select }) })
     const row = await getInfrastructure(c, "t1")
     expect(row?.tenant_id).toBe("t1")
+  })
+})
+
+describe("reapStuckRunningJobs", () => {
+  it("requeues running jobs older than the cutoff and returns them", async () => {
+    const select = vi.fn().mockResolvedValue({
+      data: [{ id: "j1", step: "supabase_setup", tenant_id: "t1" }],
+      error: null,
+    })
+    const lt = vi.fn().mockReturnValue({ select })
+    const eq = vi.fn().mockReturnValue({ lt })
+    const update = vi.fn().mockReturnValue({ eq })
+    const c = mockClient({ from: vi.fn().mockReturnValue({ update }) })
+    const reaped = await reapStuckRunningJobs(c, 30)
+    expect(reaped).toEqual([{ id: "j1", step: "supabase_setup", tenant_id: "t1" }])
+    // requeues: status -> queued, started_at cleared, available_at refreshed
+    const patch = update.mock.calls[0][0]
+    expect(patch.status).toBe("queued")
+    expect(patch.started_at).toBeNull()
+    expect(typeof patch.available_at).toBe("string")
+    // only targets running jobs whose started_at is older than cutoff
+    expect(eq).toHaveBeenCalledWith("status", "running")
+    const [col, cutoff] = lt.mock.calls[0]
+    expect(col).toBe("started_at")
+    expect(new Date(cutoff).getTime()).toBeLessThan(Date.now() - 29 * 60_000)
+  })
+
+  it("returns an empty array when nothing is stuck", async () => {
+    const select = vi.fn().mockResolvedValue({ data: [], error: null })
+    const lt = vi.fn().mockReturnValue({ select })
+    const eq = vi.fn().mockReturnValue({ lt })
+    const update = vi.fn().mockReturnValue({ eq })
+    const c = mockClient({ from: vi.fn().mockReturnValue({ update }) })
+    expect(await reapStuckRunningJobs(c, 30)).toEqual([])
+  })
+
+  it("throws when the update errors", async () => {
+    const select = vi.fn().mockResolvedValue({ data: null, error: { message: "boom" } })
+    const lt = vi.fn().mockReturnValue({ select })
+    const eq = vi.fn().mockReturnValue({ lt })
+    const update = vi.fn().mockReturnValue({ eq })
+    const c = mockClient({ from: vi.fn().mockReturnValue({ update }) })
+    await expect(reapStuckRunningJobs(c, 30)).rejects.toBeTruthy()
   })
 })
 

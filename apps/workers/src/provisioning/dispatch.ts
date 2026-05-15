@@ -2,6 +2,7 @@ import pino from "pino"
 import { createControlClient, jobs, type ProvisioningJob } from "@realreal/control-db"
 import { loadTenantContext } from "./context"
 import { getHandler } from "./steps/registry"
+import { alertOps } from "./notify"
 
 const log = pino({ name: "dispatch" })
 const BACKOFF_MS = [30_000, 120_000] as const  // attempt 0 -> 30s, attempt 1 -> 2min
@@ -34,7 +35,11 @@ export async function dispatchJob(job: ProvisioningJob): Promise<void> {
     } else {
       log.error({ jobId: job.id, step: job.step, msg }, "step failed permanently")
       await jobs.markJobStatus(client, job.id, "failed", { last_error: msg })
-      // ALERT: spec §9 — Slack #platform-ops + email. PR-D12 wires alertOps().
+      // ALERT: spec §9 — Slack #platform-ops + email. alertOps degrades
+      // gracefully if SLACK_WEBHOOK_URL is unset (logs, never throws).
+      await alertOps(
+        `provisioning failed: tenant ${job.tenant_id}`,
+        `step ${job.step} failed after ${job.attempt + 1} attempts: ${msg}`)
     }
   }
 }
