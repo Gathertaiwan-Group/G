@@ -1,7 +1,11 @@
 {
   "name": "@realreal/provisioning",
+  "version": "1.0.0",
   "private": true,
   "type": "commonjs",
+  "exports": {
+    "./clients/*": "./clients/*.ts"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
