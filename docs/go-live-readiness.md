@@ -129,15 +129,51 @@ SET on the realreal `api` Railway service (app email works; Auth email does not)
   skips confirmation but still needs SMTP for password reset and allows
   unverified-email account takeover.
 
+## 4. Redis on the realreal `api` service  [OWNER provides Redis]
+
+Discovered during deploy verification: the realreal `api` service logs
+`ECONNREFUSED 127.0.0.1:6379` — **no Redis configured** (no `REDIS_URL` /
+`UPSTASH_*` env on the realreal-api Railway service, project `ab2fc19b`).
+
+- **Core checkout is NOT affected.** Payment webhooks
+  (`apps/api/src/webhooks/*`) write `payments`/`orders` synchronously via
+  Supabase — a customer can pay and the order is marked `paid` without Redis
+  (verified by PR #62 + its tests; api `/health` 200).
+- **BUT bullmq workers need Redis** (`apps/api/src/lib/queue.ts` +
+  `workers/invoice-issuer.ts`, `workers/logistics-creator.ts`,
+  `workers/subscription-billing.ts`, `jobs/low-stock-alert.ts`). Without
+  Redis, after a paid order: **Amego 統一發票 (e-invoice) does NOT
+  auto-issue** (legally required in TW), logistics orders aren't created,
+  low-stock alerts don't fire. Subscription recurring billing is also
+  GAP#2-stubbed regardless.
+
+- ☐ **[OWNER]** Provision a Redis (Upstash — the platform already uses
+  Upstash for workers; the realreal `api` is a separate Railway project so
+  needs its own instance or a shared URL) and set `REDIS_URL` (and/or
+  `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` per
+  `apps/api/src/lib/queue.ts`'s expected vars) on the realreal-api Railway
+  service, then redeploy.
+- ☐ **[AUTOMATABLE]** Once the Redis URL/credentials are supplied, the env
+  set + redeploy can be done by the agent.
+- Verify: api logs no longer show `ECONNREFUSED:6379`; place a test paid
+  order → confirm an Amego invoice is issued.
+
+> Severity: you *can* technically collect money today without this, but
+> shipping orders with no e-invoice is a compliance problem — treat Redis as
+> required for a real go-live, not optional.
+
 ## Fastest path to "sell today"
 
 1. **[OWNER]** PChomePay keys → paste in admin → register PChomePay webhook
    (§1). Without this, selling is impossible.
-2. In parallel: pre-stage Vercel/Railway domains + apply the two
-   **[AUTOMATABLE]** PATCHes (Supabase `site_url`, Auth SMTP) once the Resend
-   key is confirmed.
-3. **[OWNER]** Flip Cloudflare DNS (§2) + verify SSL.
-4. Smoke: one real order paid end-to-end + one real signup confirmed.
+2. **[OWNER]** Provide a Redis URL for the realreal `api` service (§4) — else
+   paid orders ship with no 統一發票 (compliance problem).
+3. In parallel: pre-stage Vercel/Railway domains + apply the
+   **[AUTOMATABLE]** PATCHes (Supabase `site_url`, Auth SMTP, api Redis env)
+   once the Resend key + Redis URL are supplied.
+4. **[OWNER]** Flip Cloudflare DNS (§2) + verify SSL.
+5. Smoke: one real order paid end-to-end + e-invoice issued + one real
+   signup confirmed.
 
 Everything not marked **[OWNER]** can be executed by the agent on request
 once the corresponding secret/approval is supplied.
