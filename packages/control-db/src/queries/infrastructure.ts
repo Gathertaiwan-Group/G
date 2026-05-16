@@ -8,6 +8,7 @@ export interface InfraPatch {
   supabase_url?: string
   supabase_anon_key?: string
   supabase_service_role_key?: string
+  supabase_db_password?: string
   vercel_project_id?: string
   vercel_deployment_url?: string
   railway_project_id?: string
@@ -23,10 +24,13 @@ export interface InfraPatch {
 export async function upsertInfrastructure(
   c: SupabaseClient, tenantId: string, patch: InfraPatch, kek: Buffer,
 ): Promise<void> {
-  const { supabase_service_role_key, ...rest } = patch
+  const { supabase_service_role_key, supabase_db_password, ...rest } = patch
   const row: Record<string, unknown> = { tenant_id: tenantId, ...rest }
   if (supabase_service_role_key !== undefined) {
     row.supabase_service_role_key_encrypted = encrypt(supabase_service_role_key, kek)
+  }
+  if (supabase_db_password !== undefined) {
+    row.supabase_db_password_encrypted = encrypt(supabase_db_password, kek)
   }
   const { error } = await c.from("tenant_infrastructure")
     .upsert(row, { onConflict: "tenant_id" })
