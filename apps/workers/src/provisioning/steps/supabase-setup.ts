@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { infrastructure } from "@realreal/control-db"
@@ -25,10 +26,18 @@ export const supabaseSetupHandler: StepHandler = {
   async run(ctx) {
     const pat = requireEnv("SUPABASE_PAT")
     const orgId = requireEnv("SUPABASE_ORG_ID")
+    // Per-tenant CSPRNG Postgres password (Phase D hardening, PR-D6 review).
+    // 24 random bytes → 32 url-safe base64url chars (A-Za-z0-9-_), ~192 bits.
+    // Previously this was requireEnv("PLATFORM_KEK").slice(0, 24): every
+    // tenant's DB credential was a deterministic slice of the single shared
+    // platform KEK, so a KEK compromise/rotation implied knowledge of every
+    // tenant DB password. It is now an independent per-tenant secret,
+    // persisted KEK-encrypted via upsertInfrastructure (step 6); never logged.
+    const dbPass = randomBytes(24).toString("base64url")
     // 1. create (or reuse if a partial run left a ref — caller re-loads ctx)
     const { ref, url } = await createSupabaseProject({
       pat, name: `tenant-${ctx.tenant.slug}`, region: "ap-northeast-1",
-      orgId, dbPass: requireEnv("PLATFORM_KEK").slice(0, 24),
+      orgId, dbPass,
     })
     await pollProjectHealthy(pat, ref, { intervalMs: 5_000, maxMs: 180_000 })
     const { anon, serviceRole } = await fetchProjectApiKeys(pat, ref)
@@ -56,12 +65,14 @@ export const supabaseSetupHandler: StepHandler = {
     // 5. storage buckets
     await createStorageBuckets(pat, ref)
 
-    // 6. persist infra (service_role key KEK-encrypted in upsertInfrastructure)
+    // 6. persist infra (service_role key + db password KEK-encrypted in
+    //    upsertInfrastructure; plaintext never written to the DB or logs)
     await infrastructure.upsertInfrastructure(ctx.client, ctx.tenant.id, {
       supabase_project_ref: ref,
       supabase_url: url,
       supabase_anon_key: anon,
       supabase_service_role_key: serviceRole,
+      supabase_db_password: dbPass,
     }, ctx.kek)
   },
 }

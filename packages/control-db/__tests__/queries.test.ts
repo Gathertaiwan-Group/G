@@ -50,6 +50,20 @@ describe("upsertInfrastructure", () => {
     expect(row.supabase_service_role_key_encrypted).toBeInstanceOf(Buffer)
     expect(row).not.toHaveProperty("supabase_service_role_key")
   })
+
+  it("encrypts the supabase_db_password with the KEK before upsert", async () => {
+    const upsert = vi.fn().mockResolvedValue({ error: null })
+    const c = mockClient({ from: vi.fn().mockReturnValue({ upsert }) })
+    const kek = Buffer.alloc(32, 7)
+    await upsertInfrastructure(c, "t1", {
+      supabase_project_ref: "ref", supabase_db_password: "super-secret-pw",
+    }, kek)
+    const row = upsert.mock.calls[0][0]
+    expect(row.supabase_db_password_encrypted).toBeInstanceOf(Buffer)
+    // plaintext must never reach the column / row written to the DB
+    expect(row).not.toHaveProperty("supabase_db_password")
+    expect(JSON.stringify(row)).not.toContain("super-secret-pw")
+  })
 })
 
 describe("getInfrastructure", () => {
