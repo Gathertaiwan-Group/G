@@ -1,9 +1,18 @@
+# Railway config for the `api` service (realreal HTTP API).
+#
+# The monorepo root railway.toml targets the `workers` service. The `api`
+# Railway service deploys by uploading the monorepo root (so npm workspaces
+# resolve), so this service is pointed at THIS file via its Railway
+# "Config-as-code" path setting (serviceInstance.railwayConfigFile =
+# "apps/api/railway.toml"). Without this, `railway up` makes Railway read the
+# root railway.toml and build+run the WORKERS app under the api service.
+# Build and start commands still run from the uploaded monorepo root (/app).
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm run build"
+buildCommand = "npm install --workspaces && npx turbo build --filter=api"
 
 [deploy]
-startCommand = "npm run start"
+startCommand = "node apps/api/dist/index.js"
 healthcheckPath = "/health"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
