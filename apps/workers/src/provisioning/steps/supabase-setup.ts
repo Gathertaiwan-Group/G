@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { infrastructure } from "@realreal/control-db"
@@ -25,10 +26,21 @@ export const supabaseSetupHandler: StepHandler = {
   async run(ctx) {
     const pat = requireEnv("SUPABASE_PAT")
     const orgId = requireEnv("SUPABASE_ORG_ID")
+    // Per-tenant CSPRNG Postgres password (Phase D hardening, PR-D6 review).
+    // 24 random bytes → 32 url-safe base64url chars (A-Za-z0-9-_), ~192 bits.
+    // PREVIOUSLY this was requireEnv("PLATFORM_KEK").slice(0, 24): every
+    // tenant's DB credential was a deterministic slice of the single shared
+    // platform KEK, so a KEK compromise/rotation implied knowledge of every
+    // tenant's DB password and all tenants shared KEK-derived entropy. It is
+    // now an independent per-tenant secret generated once per provisioning
+    // run. Passed only to the Supabase create-project Mgmt API call below;
+    // not persisted (matches prior behavior — the original code never stored
+    // it) and never logged.
+    const dbPass = randomBytes(24).toString("base64url")
     // 1. create (or reuse if a partial run left a ref — caller re-loads ctx)
     const { ref, url } = await createSupabaseProject({
       pat, name: `tenant-${ctx.tenant.slug}`, region: "ap-northeast-1",
-      orgId, dbPass: requireEnv("PLATFORM_KEK").slice(0, 24),
+      orgId, dbPass,
     })
     await pollProjectHealthy(pat, ref, { intervalMs: 5_000, maxMs: 180_000 })
     const { anon, serviceRole } = await fetchProjectApiKeys(pat, ref)

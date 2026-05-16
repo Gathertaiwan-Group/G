@@ -71,6 +71,93 @@ describe("supabase_setup", () => {
     expect(upsertInfrastructure).not.toHaveBeenCalled()
   })
 
+  // Phase D hardening (PR-D6 review): the tenant DB password must be a
+  // per-tenant CSPRNG secret, NOT a slice of the single PLATFORM_KEK. A KEK
+  // compromise/rotation must not imply knowledge of every tenant DB password.
+  it("generates a per-tenant db password that is not derived from PLATFORM_KEK", async () => {
+    createSupabaseProject.mockResolvedValue({ ref: "ref1", url: "https://ref1.supabase.co" })
+    pollProjectHealthy.mockResolvedValue(undefined)
+    fetchProjectApiKeys.mockResolvedValue({ anon: "a", serviceRole: "sr" })
+    runTenantSql.mockResolvedValue([])
+    await supabaseSetupHandler.run(ctx(null))
+    const dbPass: string = createSupabaseProject.mock.calls[0][0].dbPass
+    const kek = process.env.PLATFORM_KEK as string
+    expect(typeof dbPass).toBe("string")
+    // not the whole KEK, not the old slice(0,24), not any substring relation
+    expect(dbPass).not.toBe(kek)
+    expect(dbPass).not.toBe(kek.slice(0, 24))
+    expect(kek).not.toContain(dbPass)
+    expect(dbPass).not.toContain(kek)
+  })
+
+  it("generates a strong url-safe db password (CSPRNG charset + length)", async () => {
+    createSupabaseProject.mockResolvedValue({ ref: "ref1", url: "https://ref1.supabase.co" })
+    pollProjectHealthy.mockResolvedValue(undefined)
+    fetchProjectApiKeys.mockResolvedValue({ anon: "a", serviceRole: "sr" })
+    runTenantSql.mockResolvedValue([])
+    await supabaseSetupHandler.run(ctx(null))
+    const dbPass: string = createSupabaseProject.mock.calls[0][0].dbPass
+    // randomBytes(24).toString("base64url") → exactly 32 chars from
+    // [A-Za-z0-9-_], no padding, no chars needing JSON/URL escaping.
+    expect(dbPass).toMatch(/^[A-Za-z0-9_-]{32}$/)
+  })
+
+  it("generates a fresh random db password on every provisioning run", async () => {
+    createSupabaseProject.mockResolvedValue({ ref: "ref1", url: "https://ref1.supabase.co" })
+    pollProjectHealthy.mockResolvedValue(undefined)
+    fetchProjectApiKeys.mockResolvedValue({ anon: "a", serviceRole: "sr" })
+    runTenantSql.mockResolvedValue([])
+    await supabaseSetupHandler.run(ctx(null))
+    await supabaseSetupHandler.run(ctx(null))
+    const p1 = createSupabaseProject.mock.calls[0][0].dbPass
+    const p2 = createSupabaseProject.mock.calls[1][0].dbPass
+    expect(p1).not.toBe(p2)
+  })
+
+  // The DB password is a credential: it may appear ONLY as an arg of the
+  // Supabase create-project Mgmt call (which needs it). It must never be
+  // logged, and neither it nor PLATFORM_KEK may reach any other client call.
+  it("never logs the db password or PLATFORM_KEK, and never leaks it elsewhere", async () => {
+    createSupabaseProject.mockResolvedValue({ ref: "ref1", url: "https://ref1.supabase.co" })
+    pollProjectHealthy.mockResolvedValue(undefined)
+    fetchProjectApiKeys.mockResolvedValue({ anon: "a", serviceRole: "sr" })
+    runTenantSql.mockResolvedValue([])
+    const logSpies = (["log", "info", "warn", "error", "debug"] as const).map(
+      m => vi.spyOn(console, m).mockImplementation(() => {}),
+    )
+    try {
+      await supabaseSetupHandler.run(ctx(null))
+    } finally {
+      logSpies.forEach(s => s.mockRestore())
+    }
+    const dbPass: string = createSupabaseProject.mock.calls[0][0].dbPass
+    const kek = process.env.PLATFORM_KEK as string
+    for (const spy of logSpies) {
+      for (const call of spy.mock.calls) {
+        const line = JSON.stringify(call)
+        expect(line).not.toContain(dbPass)
+        expect(line).not.toContain(kek)
+      }
+    }
+    // Password legitimately reaches only createSupabaseProject. It must
+    // appear in no other client call.
+    for (const c of pollProjectHealthy.mock.calls) {
+      expect(JSON.stringify(c)).not.toContain(dbPass)
+    }
+    for (const c of runTenantSql.mock.calls) {
+      expect(JSON.stringify(c)).not.toContain(dbPass)
+    }
+    for (const c of configureAuth.mock.calls) {
+      expect(JSON.stringify(c)).not.toContain(dbPass)
+    }
+    for (const c of createStorageBuckets.mock.calls) {
+      expect(JSON.stringify(c)).not.toContain(dbPass)
+    }
+    for (const c of upsertInfrastructure.mock.calls) {
+      expect(JSON.stringify(c)).not.toContain(dbPass)
+    }
+  })
+
   it("never passes a plaintext service-role key through any arg but the typed patch", async () => {
     createSupabaseProject.mockResolvedValue({ ref: "ref1", url: "https://ref1.supabase.co" })
     pollProjectHealthy.mockResolvedValue(undefined)
